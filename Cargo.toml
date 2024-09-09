@@ -1,0 +1,23 @@
+[package]
+name = "cec-sync"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-channel = "2.3.1"
+async-executor = "1.13.1"
+async-io = "2.4.0"
+async-net = "2.0.0"
+blocking = "1.6.1"
+cec-rs = { git = "https://github.com/kira-bruneau/cec-rs.git" }
+clap = { version = "4.5.21", features = ["default", "derive"] }
+futures-util = "0.3.31"
+postcard = { version = "1.0.10", features = [ "experimental-derive" ] }
+serde = "1.0.215"
+thiserror = "1.0.69"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

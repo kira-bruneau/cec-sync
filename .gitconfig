@@ -1,0 +1,15 @@
+# git config include.path ../.gitconfig
+[remote "gitlab"]
+	url = https://gitlab.com/kira-bruneau/cec-sync.git
+	fetch = +refs/heads/*:refs/remotes/gitlab/*
+[remote "github"]
+	url = https://github.com/kira-bruneau/cec-sync.git
+	fetch = +refs/heads/*:refs/remotes/github/*
+	fetch = +refs/pull/*/head:refs/pullreqs/*
+[remote "all"]
+	url = https://gitlab.com/kira-bruneau/cec-sync.git
+	fetch = +refs/heads/*:refs/remotes/all/*
+	pushurl = git@gitlab.com:kira-bruneau/cec-sync.git
+	pushurl = git@github.com:kira-bruneau/cec-sync.git
+[remote]
+	pushDefault = all
