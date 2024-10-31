@@ -2,10 +2,11 @@ mod backend;
 mod meta_command;
 
 use {
+    async_channel::Sender,
     async_executor::LocalExecutor,
     async_io::block_on,
     async_net::unix::UnixDatagram,
-    backend::{dbus, unix_socket, wayland, Backend, Event, Proxy, Request, Stream},
+    backend::{dbus, udev, unix_socket, wayland, Backend, Event, Proxy, Request, Stream},
     cec_rs::{
         CecAudioStatusError, CecConnectionCfgBuilder, CecConnectionError, CecDeviceType,
         CecDeviceTypeVec, CecLogLevel,
@@ -65,17 +66,21 @@ impl Default for Command {
 async fn serve() -> Result<(), Error> {
     let (tx, rx) = async_channel::unbounded();
 
-    let ((_, unix_stream), (mut dbus_proxy, dbus_stream), (mut wayland_proxy, _)) = try_join!(
-        unix_socket::Backend::new()
-            .and_then(|backend| backend.split())
-            .map_err(BackendError::UnixSocket),
-        dbus::Backend::new()
-            .and_then(|backend| backend.split())
-            .map_err(BackendError::Dbus),
-        wayland::Backend::new()
-            .and_then(|backend| backend.split())
-            .map_err(BackendError::Wayland),
-    )?;
+    let ((_, unix_stream), (mut dbus_proxy, dbus_stream), (_, udev_stream), (mut wayland_proxy, _)) =
+        try_join!(
+            unix_socket::Backend::new()
+                .and_then(|backend| backend.split())
+                .map_err(BackendError::UnixSocket),
+            dbus::Backend::new()
+                .and_then(|backend| backend.split())
+                .map_err(BackendError::Dbus),
+            udev::Backend::new()
+                .and_then(|backend| backend.split())
+                .map_err(BackendError::Udev),
+            wayland::Backend::new()
+                .and_then(|backend| backend.split())
+                .map_err(BackendError::Wayland)
+        )?;
 
     let local_ex = LocalExecutor::new();
 
@@ -108,24 +113,20 @@ async fn serve() -> Result<(), Error> {
 
     local_ex
         .run(async move {
-            let key_press_tx = tx.clone();
-            let command_tx = tx.clone();
-            let log_message_tx = tx.clone();
-
-            let cec = match cec_config()
-                .key_press_callback(Box::new(move |key_press| {
-                    let _ = key_press_tx.try_send(Event::KeyPress(key_press));
-                }))
-                .command_received_callback(Box::new(move |command| {
-                    let _ = command_tx.try_send(Event::Command(command));
-                }))
-                .log_message_callback(Box::new(move |log_message| {
-                    let _ = log_message_tx.try_send(Event::LogMessage(log_message));
-                }))
-                .build()
-                .unwrap()
-                .open()
-            {
+            // NOTE: For now, this assumes that there's only ever one
+            // HDMI port that supports CEC.
+            //
+            // If we want to support multiple, we need to decide how
+            // to tell the backends what port an event came from.
+            // (would iHDMIPort from the CEC configuration work?)
+            //
+            // We also need to carefully consider what should be
+            // handled globally vs. per-display.
+            //
+            // eg. Two different connected TVs could have different
+            // volumes. It should be possible to adjust each
+            // individually.
+            let mut cec = match cec_config_evented(tx.clone()).build().unwrap().open() {
                 Ok(cec) => Some(Arc::new(cec)),
                 Err(
                     err @ CecConnectionError::LibInitFailed
@@ -141,12 +142,24 @@ async fn serve() -> Result<(), Error> {
 
             let mut stream = stream_select!(
                 unix_stream.into_stream().map_err(BackendError::UnixSocket),
+                udev_stream.into_stream().map_err(BackendError::Udev),
                 dbus_stream.into_stream().map_err(BackendError::Dbus)
             );
 
             while let Some(action) = stream.next().await {
                 if let Some(action) = log_result(action) {
                     match action {
+                        Request::ResetDevice(port) => {
+                            cec = log_result(
+                                cec_config_evented(tx.clone())
+                                    .port(port)
+                                    .build()
+                                    .unwrap()
+                                    .open(),
+                            )
+                            .map(Arc::new);
+                        }
+                        Request::RemoveDevice(_) => cec = None,
                         Request::MetaCommand(command) => {
                             if let Some(cec) = &cec {
                                 log_result(command.run(cec.clone()).await);
@@ -193,6 +206,22 @@ async fn send(command: MetaCommand) -> Result<(), io::Error> {
     let path = unix_socket::Backend::path();
     socket.send_to(&command, &path).await?;
     Ok(())
+}
+
+fn cec_config_evented(tx: Sender<Event>) -> CecConnectionCfgBuilder {
+    let key_press_tx = tx.clone();
+    let command_tx = tx.clone();
+    let log_message_tx = tx;
+    cec_config()
+        .key_press_callback(Box::new(move |key_press| {
+            let _ = key_press_tx.try_send(Event::KeyPress(key_press));
+        }))
+        .command_received_callback(Box::new(move |command| {
+            let _ = command_tx.try_send(Event::Command(command));
+        }))
+        .log_message_callback(Box::new(move |log_message| {
+            let _ = log_message_tx.try_send(Event::LogMessage(log_message));
+        }))
 }
 
 fn cec_config() -> CecConnectionCfgBuilder {
@@ -270,6 +299,8 @@ enum BackendError {
     UnixSocket(unix_socket::Error),
     #[error("dbus: {0}")]
     Dbus(zbus::Error),
+    #[error("udev: {0}")]
+    Udev(io::Error),
     #[error("wayland: {0}")]
     Wayland(wayland::Error),
 }

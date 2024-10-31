@@ -1,4 +1,5 @@
 pub mod dbus;
+pub mod udev;
 pub mod unix_socket;
 pub mod wayland;
 
@@ -6,6 +7,7 @@ use {
     crate::meta_command::MetaCommand,
     cec_rs::{CecCommand, CecKeypress, CecLogMessage},
     futures_util::stream,
+    std::ffi::CString,
 };
 
 pub trait Backend: Sized {
@@ -60,5 +62,7 @@ impl Stream for () {
 
 #[derive(Debug, Clone)]
 pub enum Request {
+    ResetDevice(CString),
+    RemoveDevice(#[expect(dead_code)] CString),
     MetaCommand(MetaCommand),
 }

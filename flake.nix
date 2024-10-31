@@ -43,8 +43,14 @@
           };
 
           strictDeps = true;
+
           nativeBuildInputs = with pkgs; [ pkg-config ];
-          buildInputs = with pkgs; [ libcec ];
+
+          buildInputs = with pkgs; [
+            libcec
+            udev
+          ];
+
           C_INCLUDE_PATH = "${pkgs.libcec}/include/libcec";
         };
 

@@ -24,6 +24,10 @@ Options:
 
 Used by the CLI when there's a cec-sync server running (started by `cec-sync serve`)
 
+### Udev
+
+Handles hot plugging of Pulse-Eight CEC adapters
+
 ### D-Bus
 
 - **[systemd-logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html):**
