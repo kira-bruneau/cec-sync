@@ -26,6 +26,7 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
+        root = ./.;
         lib = nixpkgs.lib;
         pkgs = nixpkgs.legacyPackages.${system};
 
@@ -33,7 +34,14 @@
 
         craneLib = crane.mkLib pkgs;
         commonArgs = {
-          src = craneLib.cleanCargoSource ./.;
+          src = lib.fileset.toSource {
+            root = root;
+            fileset = lib.fileset.unions [
+              (craneLib.fileset.commonCargoSources root)
+              (lib.fileset.maybeMissing ./wayland-protocols)
+            ];
+          };
+
           strictDeps = true;
           nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [ libcec ];
@@ -50,6 +58,13 @@
         };
 
         packages = {
+          gamescope = pkgs.fetchFromGitHub {
+            owner = "ValveSoftware";
+            repo = "gamescope";
+            rev = "refs/tags/3.15.14";
+            hash = "sha256-/g0/f7WkkS3AouvLQmRaiDbMyVEfikeoOCqqFjmWO0k=";
+          };
+
           inherit default;
         };
 

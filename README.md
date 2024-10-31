@@ -24,6 +24,11 @@ Options:
 
 Used by the CLI when there's a cec-sync server running (started by `cec-sync serve`)
 
+### Wayland
+
+- **[gamescope-input-method](https://github.com/ValveSoftware/gamescope/blob/master/protocol/gamescope-input-method.xml):**
+  Handles TV remote input for your Steam Deck
+
 ## Planned backends
 
 ### D-Bus
@@ -36,9 +41,6 @@ Used by the CLI when there's a cec-sync server running (started by `cec-sync ser
   theatre system
 
 ### Wayland
-
-- **[gamescope-input-method](https://github.com/ValveSoftware/gamescope/blob/master/protocol/gamescope-input-method.xml):**
-  Handles TV remote input for your Steam Deck
 
 - **[virtual-keyboard-unstable-v1](https://wayland.app/protocols/virtual-keyboard-unstable-v1):**
   Handles TV remote input for your Wayland-based desktop environment

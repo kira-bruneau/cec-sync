@@ -5,13 +5,13 @@ use {
     async_executor::LocalExecutor,
     async_io::block_on,
     async_net::unix::UnixDatagram,
-    backend::{unix_socket, Backend, Event, Request, Stream},
+    backend::{unix_socket, wayland, Backend, Event, Proxy, Request, Stream},
     cec_rs::{
         CecAudioStatusError, CecConnectionCfgBuilder, CecConnectionError, CecDeviceType,
         CecDeviceTypeVec, CecLogLevel,
     },
     clap::{command, Parser, Subcommand},
-    futures_util::{StreamExt, TryFutureExt, TryStreamExt},
+    futures_util::{try_join, StreamExt, TryFutureExt, TryStreamExt},
     meta_command::MetaCommand,
     postcard::experimental::max_size::MaxSize,
     std::{
@@ -65,10 +65,14 @@ impl Default for Command {
 async fn serve() -> Result<(), Error> {
     let (tx, rx) = async_channel::unbounded();
 
-    let (_, unix_stream) = unix_socket::Backend::new()
-        .and_then(|backend| backend.split())
-        .await
-        .map_err(BackendError::UnixSocket)?;
+    let ((_, unix_stream), (mut wayland_proxy, _)) = try_join!(
+        unix_socket::Backend::new()
+            .and_then(|backend| backend.split())
+            .map_err(BackendError::UnixSocket),
+        wayland::Backend::new()
+            .and_then(|backend| backend.split())
+            .map_err(BackendError::Wayland)
+    )?;
 
     let local_ex = LocalExecutor::new();
 
@@ -90,6 +94,13 @@ async fn serve() -> Result<(), Error> {
                     ),
                     _ => (),
                 };
+
+                log_result(
+                    wayland_proxy
+                        .event(&event)
+                        .await
+                        .map_err(BackendError::Wayland),
+                );
             }
         })
         .detach();
@@ -252,4 +263,6 @@ impl From<CecAudioStatusError> for CecError {
 enum BackendError {
     #[error("unix socket: {0}")]
     UnixSocket(unix_socket::Error),
+    #[error("wayland: {0}")]
+    Wayland(wayland::Error),
 }

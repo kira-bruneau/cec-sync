@@ -1,4 +1,5 @@
 pub mod unix_socket;
+pub mod wayland;
 
 use {
     crate::meta_command::MetaCommand,
@@ -21,13 +22,11 @@ pub trait Backend: Sized {
 pub trait Proxy {
     type Error;
 
-    #[expect(dead_code)]
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error>;
 }
 
 #[derive(Clone)]
 pub enum Event {
-    #[expect(dead_code)]
     KeyPress(CecKeypress),
     #[expect(dead_code)]
     Command(CecCommand),
