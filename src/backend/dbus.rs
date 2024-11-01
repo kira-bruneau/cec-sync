@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::{self, Event, Request},
-        meta_command::{Active, MetaCommand, Power},
+        meta_command::{MetaCommand, Power},
     },
     cec_rs::{CecCommand, CecOpcode},
     futures_util::StreamExt,
@@ -74,10 +74,14 @@ impl backend::Stream for Stream {
 
     fn into_stream(self) -> impl futures_util::Stream<Item = Result<Request, Self::Error>> {
         fn map_event(event: PrepareForSleep) -> Result<Request, zbus::Error> {
-            Ok(Request::MetaCommand(match event.args()?.start {
-                true => MetaCommand::Power(Power::Off { cooperative: true }),
-                false => MetaCommand::Active(Active::Set { cooperative: true }),
-            }))
+            Ok(match event.args()?.start {
+                true => Request::MetaCommand(MetaCommand::Power(Power::Off { cooperative: true })),
+
+                // After resuming from sleep, libcec gets stuck in an
+                // infinite retry loop if we send MetaCommand::Active,
+                // so just reset the connection instead
+                false => Request::ResetDevice(None),
+            })
         }
 
         self.prepare_for_sleep.map(map_event)

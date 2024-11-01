@@ -62,7 +62,7 @@ impl Stream for () {
 
 #[derive(Debug, Clone)]
 pub enum Request {
-    ResetDevice(CString),
+    ResetDevice(Option<CString>),
     RemoveDevice(#[expect(dead_code)] CString),
     MetaCommand(MetaCommand),
 }

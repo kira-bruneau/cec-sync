@@ -8,8 +8,8 @@ use {
     async_net::unix::UnixDatagram,
     backend::{dbus, udev, unix_socket, wayland, Backend, Event, Proxy, Request, Stream},
     cec_rs::{
-        CecAudioStatusError, CecConnectionCfgBuilder, CecConnectionError, CecDeviceType,
-        CecDeviceTypeVec, CecLogLevel,
+        CecAudioStatusError, CecConnection, CecConnectionCfgBuilder, CecConnectionError,
+        CecDeviceType, CecDeviceTypeVec, CecLogLevel,
     },
     clap::{command, Parser, Subcommand},
     futures_util::{stream_select, try_join, StreamExt, TryFutureExt, TryStreamExt},
@@ -126,20 +126,7 @@ async fn serve() -> Result<(), Error> {
             // eg. Two different connected TVs could have different
             // volumes. It should be possible to adjust each
             // individually.
-            let mut cec = match cec_config_evented(tx.clone()).build().unwrap().open() {
-                Ok(cec) => Some(Arc::new(cec)),
-                Err(
-                    err @ CecConnectionError::LibInitFailed
-                    | err @ CecConnectionError::CallbackRegistrationFailed,
-                ) => {
-                    return Err(Error::from(err));
-                }
-                Err(err) => {
-                    log_notice(err, "waiting for adapter...");
-                    None
-                }
-            };
-
+            let mut cec = cec_build(cec_config_evented(tx.clone()))?;
             let mut stream = stream_select!(
                 unix_stream.into_stream().map_err(BackendError::UnixSocket),
                 udev_stream.into_stream().map_err(BackendError::Udev),
@@ -150,14 +137,19 @@ async fn serve() -> Result<(), Error> {
                 if let Some(action) = log_result(action) {
                     match action {
                         Request::ResetDevice(port) => {
-                            cec = log_result(
-                                cec_config_evented(tx.clone())
-                                    .port(port)
-                                    .build()
-                                    .unwrap()
-                                    .open(),
-                            )
-                            .map(Arc::new);
+                            // Explicitly drop old cec connection to
+                            // make sure it doesn't keep a lock on the
+                            // device when we create a new connection
+                            cec = None;
+                            let _ = cec;
+
+                            let config = cec_config_evented(tx.clone());
+                            let config = match port {
+                                Some(port) => config.port(port),
+                                None => config,
+                            };
+
+                            cec = cec_build(config)?;
                         }
                         Request::RemoveDevice(_) => cec = None,
                         Request::MetaCommand(command) => {
@@ -228,6 +220,24 @@ fn cec_config() -> CecConnectionCfgBuilder {
     CecConnectionCfgBuilder::default()
         .device_name("cec-sync".to_owned())
         .device_types(CecDeviceTypeVec::new(CecDeviceType::PlaybackDevice))
+}
+
+fn cec_build(
+    config: CecConnectionCfgBuilder,
+) -> Result<Option<Arc<CecConnection>>, CecConnectionError> {
+    Ok(match config.build().unwrap().open() {
+        Ok(cec) => Some(Arc::new(cec)),
+        Err(
+            err @ CecConnectionError::LibInitFailed
+            | err @ CecConnectionError::CallbackRegistrationFailed,
+        ) => {
+            return Err(err);
+        }
+        Err(err) => {
+            log_notice(err, "waiting for adapter...");
+            None
+        }
+    })
 }
 
 fn log_result<T, E: Into<Error>>(result: Result<T, E>) -> Option<T> {

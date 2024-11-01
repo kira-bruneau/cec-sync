@@ -68,11 +68,11 @@ impl backend::Stream for Stream {
                     }) {
                     Some((Some(Backend::CEC_VID), Some(Backend::CEC_PID | Backend::CEC_PID2))) => {
                         match event.event_type() {
-                            EventType::Add => Some(Request::ResetDevice(
+                            EventType::Add => Some(Request::ResetDevice(Some(
                                 // usb_device should always have a valid devnode
                                 CString::new(event.devnode().unwrap().as_os_str().as_bytes())
                                     .unwrap(),
-                            )),
+                            ))),
                             EventType::Remove => Some(Request::RemoveDevice(
                                 // usb_device should always have a valid devnode
                                 CString::new(event.devnode().unwrap().as_os_str().as_bytes())
