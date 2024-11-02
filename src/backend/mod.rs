@@ -1,3 +1,4 @@
+pub mod all;
 pub mod dbus;
 pub mod udev;
 pub mod unix_socket;
