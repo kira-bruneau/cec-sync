@@ -5,13 +5,13 @@ use {
     async_executor::LocalExecutor,
     async_io::block_on,
     async_net::unix::UnixDatagram,
-    backend::{unix_socket, wayland, Backend, Event, Proxy, Request, Stream},
+    backend::{dbus, unix_socket, wayland, Backend, Event, Proxy, Request, Stream},
     cec_rs::{
         CecAudioStatusError, CecConnectionCfgBuilder, CecConnectionError, CecDeviceType,
         CecDeviceTypeVec, CecLogLevel,
     },
     clap::{command, Parser, Subcommand},
-    futures_util::{try_join, StreamExt, TryFutureExt, TryStreamExt},
+    futures_util::{stream_select, try_join, StreamExt, TryFutureExt, TryStreamExt},
     meta_command::MetaCommand,
     postcard::experimental::max_size::MaxSize,
     std::{
@@ -65,13 +65,16 @@ impl Default for Command {
 async fn serve() -> Result<(), Error> {
     let (tx, rx) = async_channel::unbounded();
 
-    let ((_, unix_stream), (mut wayland_proxy, _)) = try_join!(
+    let ((_, unix_stream), (mut dbus_proxy, dbus_stream), (mut wayland_proxy, _)) = try_join!(
         unix_socket::Backend::new()
             .and_then(|backend| backend.split())
             .map_err(BackendError::UnixSocket),
+        dbus::Backend::new()
+            .and_then(|backend| backend.split())
+            .map_err(BackendError::Dbus),
         wayland::Backend::new()
             .and_then(|backend| backend.split())
-            .map_err(BackendError::Wayland)
+            .map_err(BackendError::Wayland),
     )?;
 
     let local_ex = LocalExecutor::new();
@@ -95,12 +98,10 @@ async fn serve() -> Result<(), Error> {
                     _ => (),
                 };
 
-                log_result(
-                    wayland_proxy
-                        .event(&event)
-                        .await
-                        .map_err(BackendError::Wayland),
-                );
+                log_result(try_join!(
+                    dbus_proxy.event(&event).map_err(BackendError::Dbus),
+                    wayland_proxy.event(&event).map_err(BackendError::Wayland)
+                ));
             }
         })
         .detach();
@@ -138,8 +139,12 @@ async fn serve() -> Result<(), Error> {
                 }
             };
 
-            let mut unix_stream = unix_stream.into_stream().map_err(BackendError::UnixSocket);
-            while let Some(action) = unix_stream.next().await {
+            let mut stream = stream_select!(
+                unix_stream.into_stream().map_err(BackendError::UnixSocket),
+                dbus_stream.into_stream().map_err(BackendError::Dbus)
+            );
+
+            while let Some(action) = stream.next().await {
                 if let Some(action) = log_result(action) {
                     match action {
                         Request::MetaCommand(command) => {
@@ -263,6 +268,8 @@ impl From<CecAudioStatusError> for CecError {
 enum BackendError {
     #[error("unix socket: {0}")]
     UnixSocket(unix_socket::Error),
+    #[error("dbus: {0}")]
+    Dbus(zbus::Error),
     #[error("wayland: {0}")]
     Wayland(wayland::Error),
 }

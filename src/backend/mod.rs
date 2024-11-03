@@ -1,3 +1,4 @@
+pub mod dbus;
 pub mod unix_socket;
 pub mod wayland;
 
@@ -28,7 +29,6 @@ pub trait Proxy {
 #[derive(Clone)]
 pub enum Event {
     KeyPress(CecKeypress),
-    #[expect(dead_code)]
     Command(CecCommand),
     LogMessage(CecLogMessage),
 }

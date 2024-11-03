@@ -24,6 +24,11 @@ Options:
 
 Used by the CLI when there's a cec-sync server running (started by `cec-sync serve`)
 
+### D-Bus
+
+- **[systemd-logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html):**
+  Syncs systemd sleep state with the sleep state of your TV
+
 ### Wayland
 
 - **[gamescope-input-method](https://github.com/ValveSoftware/gamescope/blob/master/protocol/gamescope-input-method.xml):**
@@ -32,9 +37,6 @@ Used by the CLI when there's a cec-sync server running (started by `cec-sync ser
 ## Planned backends
 
 ### D-Bus
-
-- **[systemd-logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html):**
-  Syncs systemd sleep state with the sleep state of your TV
 
 - **[MPRIS](https://specifications.freedesktop.org/mpris-spec/latest):**
   Syncs media playback state between your Linux device and your home

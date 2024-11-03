@@ -12,12 +12,14 @@ blocking = "1.6.1"
 cec-rs = { git = "https://github.com/kira-bruneau/cec-rs.git" }
 clap = { version = "4.5.21", features = ["default", "derive"] }
 futures-util = "0.3.31"
+logind-zbus = "4.0.4"
 postcard = { version = "1.0.10", features = [ "experimental-derive" ] }
 serde = "1.0.215"
 thiserror = "1.0.69"
 wayland-backend = "0.3.7"
 wayland-client = "0.31.7"
 wayland-scanner = "0.31.5"
+zbus = "4.4.0"
 
 [profile.release]
 lto = true
