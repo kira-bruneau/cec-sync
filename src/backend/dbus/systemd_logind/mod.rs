@@ -5,45 +5,35 @@ use {
     },
     cec_rs::{CecCommand, CecOpcode},
     futures_util::StreamExt,
-    logind_zbus::manager::{
-        ManagerProxy as LogindManagerProxy, PrepareForSleep, PrepareForSleepStream,
-    },
-    zbus::{proxy::CacheProperties, Connection},
+    logind_zbus::manager::{ManagerProxy, PrepareForSleep, PrepareForSleepStream},
+    zbus::proxy::CacheProperties,
 };
 
 pub struct Backend {
-    connection: Connection,
+    manager: ManagerProxy<'static>,
 }
 
-impl backend::Backend for Backend {
-    type Error = zbus::Error;
+pub async fn new(system: zbus::Connection) -> Result<Backend, zbus::Error> {
+    let manager = ManagerProxy::builder(&system)
+        .cache_properties(CacheProperties::No)
+        .build()
+        .await?;
 
-    type Proxy = Proxy;
+    Ok(Backend { manager })
+}
 
-    type Stream = Stream;
-
-    async fn new() -> Result<Self, Self::Error> {
-        Ok(Self {
-            connection: Connection::system().await?,
-        })
-    }
-
-    async fn split(self) -> Result<(Self::Proxy, Self::Stream), Self::Error> {
-        let logind_manager = LogindManagerProxy::builder(&self.connection)
-            .cache_properties(CacheProperties::No)
-            .build()
-            .await?;
-
-        let prepare_for_sleep = logind_manager.receive_prepare_for_sleep().await?;
-        Ok((
-            Self::Proxy { logind_manager },
-            Self::Stream { prepare_for_sleep },
-        ))
-    }
+pub async fn split(backend: Backend) -> Result<(Proxy, Stream), zbus::Error> {
+    let prepare_for_sleep = backend.manager.receive_prepare_for_sleep().await?;
+    Ok((
+        Proxy {
+            manager: backend.manager.clone(),
+        },
+        Stream { prepare_for_sleep },
+    ))
 }
 
 pub struct Proxy {
-    logind_manager: LogindManagerProxy<'static>,
+    manager: ManagerProxy<'static>,
 }
 
 impl backend::Proxy for Proxy {
@@ -55,7 +45,7 @@ impl backend::Proxy for Proxy {
                 CecCommand {
                     opcode: CecOpcode::Standby,
                     ..
-                } => self.logind_manager.suspend(false).await?,
+                } => self.manager.suspend(false).await?,
                 _ => (),
             },
             _ => (),

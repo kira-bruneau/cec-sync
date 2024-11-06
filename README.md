@@ -30,6 +30,9 @@ Handles hot plugging of Pulse-Eight CEC adapters
 
 ### D-Bus
 
+- **[MPRIS](https://specifications.freedesktop.org/mpris-spec/latest):**
+  Syncs media playback state between your Linux device and your home
+  theatre system
 - **[systemd-logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html):**
   Syncs systemd sleep state with the sleep state of your TV
 
@@ -39,12 +42,6 @@ Handles hot plugging of Pulse-Eight CEC adapters
   Handles TV remote input for your Steam Deck
 
 ## Planned backends
-
-### D-Bus
-
-- **[MPRIS](https://specifications.freedesktop.org/mpris-spec/latest):**
-  Syncs media playback state between your Linux device and your home
-  theatre system
 
 ### Wayland
 

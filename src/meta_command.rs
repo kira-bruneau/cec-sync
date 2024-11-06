@@ -2,8 +2,8 @@ use {
     crate::CecError,
     blocking::unblock,
     cec_rs::{
-        CecAudioStatusError, CecConnection, CecDeviceType, CecLogicalAddress, CecPowerStatus,
-        CecUserControlCode, KnownAndRegisteredCecLogicalAddress,
+        CecAudioStatusError, CecConnection, CecDeckInfo, CecDeviceType, CecLogicalAddress,
+        CecPowerStatus, CecUserControlCode, KnownAndRegisteredCecLogicalAddress,
     },
     clap::Subcommand,
     postcard::experimental::max_size::MaxSize,
@@ -27,6 +27,9 @@ pub enum MetaCommand {
         #[command(subcommand)]
         command: Option<Mute>,
     },
+
+    #[clap(skip)]
+    DeckInfo(DeckInfo),
 }
 
 #[derive(Subcommand, Serialize, Deserialize, MaxSize, Debug, Copy, Clone)]
@@ -83,6 +86,31 @@ pub enum Mute {
     Off,
 }
 
+#[derive(
+    Subcommand, Serialize, Deserialize, MaxSize, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord,
+)]
+pub enum DeckInfo {
+    Play,
+    Still,
+    Stop,
+}
+
+impl Default for DeckInfo {
+    fn default() -> Self {
+        DeckInfo::Stop
+    }
+}
+
+impl From<DeckInfo> for CecDeckInfo {
+    fn from(value: DeckInfo) -> Self {
+        match value {
+            DeckInfo::Play => CecDeckInfo::Play,
+            DeckInfo::Still => CecDeckInfo::Still,
+            DeckInfo::Stop => CecDeckInfo::Stop,
+        }
+    }
+}
+
 impl MetaCommand {
     pub fn run(self, cec: Arc<CecConnection>) -> impl Future<Output = Result<(), CecError>> {
         unblock(move || self.run_sync(&cec))
@@ -108,6 +136,7 @@ impl MetaCommand {
             MetaCommand::Mute {
                 command: Some(Mute::Off),
             } => mute_off(cec),
+            MetaCommand::DeckInfo(deck_info) => deck_info_set(cec, deck_info.into()),
         }
     }
 }
@@ -238,5 +267,10 @@ fn mute_off(cec: &CecConnection) -> Result<(), CecError> {
         Err(err) => return Err(CecError::AudioStatus(err)),
     }
 
+    Ok(())
+}
+
+fn deck_info_set(cec: &CecConnection, info: CecDeckInfo) -> Result<(), CecError> {
+    cec.set_deck_info(info, true)?;
     Ok(())
 }

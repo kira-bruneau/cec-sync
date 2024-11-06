@@ -71,6 +71,35 @@
             hash = "sha256-/g0/f7WkkS3AouvLQmRaiDbMyVEfikeoOCqqFjmWO0k=";
           };
 
+          mpris-zbus = pkgs.stdenv.mkDerivation (finalAttrs: {
+            pname = "mpris-zbus";
+            version = "2.2";
+
+            src = pkgs.fetchFromGitLab {
+              domain = "gitlab.freedesktop.org";
+              owner = "mpris";
+              repo = "mpris-spec";
+              rev = "refs/tags/v${finalAttrs.version}";
+              hash = "sha256-gkL81/wlSkS5BNZ4BHEtWKyDhQGvwKPvNbljPt6hiQE=";
+            };
+
+            nativeBuildInputs = with pkgs; [ zbus-xmlgen ];
+
+            # Remove problematic tp:type attributes
+            # https://github.com/dbus2/zbus/issues/255
+            postPatch = ''
+              find spec -type f -iname '*.xml' -print0 | xargs -0 -n1 sed -i 's/tp:type="[^"]*"//g'
+            '';
+
+            dontBuild = true;
+
+            installPhase = ''
+              mkdir "$out"
+              cd "$out"
+              find "$NIX_BUILD_TOP/$sourceRoot/spec" -type f -iname '*.xml' -print0 | xargs -0 -n1 -exec zbus-xmlgen file
+            '';
+          });
+
           inherit default;
         };
 
