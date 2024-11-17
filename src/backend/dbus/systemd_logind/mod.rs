@@ -22,21 +22,16 @@ pub async fn new(system: zbus::Connection) -> Result<Backend, zbus::Error> {
     Ok(Backend { manager })
 }
 
-pub async fn split(backend: Backend) -> Result<(Proxy, Stream), zbus::Error> {
+pub async fn split(backend: &Backend) -> Result<(Proxy, Stream), zbus::Error> {
     let prepare_for_sleep = backend.manager.receive_prepare_for_sleep().await?;
-    Ok((
-        Proxy {
-            manager: backend.manager.clone(),
-        },
-        Stream { prepare_for_sleep },
-    ))
+    Ok((Proxy { backend }, Stream { prepare_for_sleep }))
 }
 
-pub struct Proxy {
-    manager: ManagerProxy<'static>,
+pub struct Proxy<'a> {
+    backend: &'a Backend,
 }
 
-impl backend::Proxy for Proxy {
+impl backend::Proxy for Proxy<'_> {
     type Error = zbus::Error;
 
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error> {
@@ -45,7 +40,7 @@ impl backend::Proxy for Proxy {
                 CecCommand {
                     opcode: CecOpcode::Standby,
                     ..
-                } => self.manager.suspend(false).await?,
+                } => self.backend.manager.suspend(false).await?,
                 _ => (),
             },
             _ => (),

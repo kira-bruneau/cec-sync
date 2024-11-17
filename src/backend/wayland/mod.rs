@@ -48,9 +48,9 @@ pub struct Backend {
 impl backend::Backend for Backend {
     type Error = Error;
 
-    type Proxy = Proxy;
+    type Proxy<'a> = Proxy;
 
-    type Stream = ();
+    type Stream<'a> = ();
 
     async fn new() -> Result<Self, Error> {
         Ok(Self {
@@ -58,7 +58,7 @@ impl backend::Backend for Backend {
         })
     }
 
-    async fn split(self) -> Result<(Self::Proxy, Self::Stream), Error> {
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Error> {
         let display = self.connection.display();
         let mut event_queue = AsyncEventQueue::new(self.connection.new_event_queue())?;
         let qh = event_queue.handle();

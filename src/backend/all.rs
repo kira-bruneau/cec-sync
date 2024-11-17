@@ -13,9 +13,9 @@ pub struct Backend {
 impl backend::Backend for Backend {
     type Error = Error;
 
-    type Proxy = Proxy;
+    type Proxy<'a> = Proxy<'a>;
 
-    type Stream = Stream;
+    type Stream<'a> = Stream<'a>;
 
     async fn new() -> Result<Self, Self::Error> {
         let (unix_socket, dbus, udev, wayland) = try_join!(
@@ -33,7 +33,7 @@ impl backend::Backend for Backend {
         })
     }
 
-    async fn split(self) -> Result<(Self::Proxy, Self::Stream), Self::Error> {
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error> {
         let (
             (_, unix_socket_stream),
             (dbus_proxy, dbus_stream),
@@ -60,12 +60,12 @@ impl backend::Backend for Backend {
     }
 }
 
-pub struct Proxy {
-    dbus: <dbus::Backend as backend::Backend>::Proxy,
-    wayland: <wayland::Backend as backend::Backend>::Proxy,
+pub struct Proxy<'a> {
+    dbus: <dbus::Backend as backend::Backend>::Proxy<'a>,
+    wayland: <wayland::Backend as backend::Backend>::Proxy<'a>,
 }
 
-impl backend::Proxy for Proxy {
+impl backend::Proxy for Proxy<'_> {
     type Error = Error;
 
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error> {
@@ -78,13 +78,13 @@ impl backend::Proxy for Proxy {
     }
 }
 
-pub struct Stream {
-    unix_socket: <unix_socket::Backend as backend::Backend>::Stream,
-    dbus: <dbus::Backend as backend::Backend>::Stream,
-    udev: <udev::Backend as backend::Backend>::Stream,
+pub struct Stream<'a> {
+    unix_socket: <unix_socket::Backend as backend::Backend>::Stream<'a>,
+    dbus: <dbus::Backend as backend::Backend>::Stream<'a>,
+    udev: <udev::Backend as backend::Backend>::Stream<'a>,
 }
 
-impl backend::Stream for Stream {
+impl backend::Stream for Stream<'_> {
     type Error = Error;
 
     fn into_stream(self) -> impl futures_util::Stream<Item = Result<Request, Self::Error>> {

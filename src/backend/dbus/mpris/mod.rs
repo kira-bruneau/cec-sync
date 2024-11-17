@@ -11,7 +11,7 @@ use {
         future::try_join_all, lock::Mutex as AsyncMutex, ready, FutureExt, StreamExt, TryFutureExt,
     },
     player::PlayerProxy,
-    std::{cmp::min, collections::HashMap, future::Future, pin::Pin, rc::Rc, task::Poll},
+    std::{cmp::min, collections::HashMap, future::Future, pin::Pin, task::Poll},
     zbus::{
         fdo::{DBusProxy, NameOwnerChanged},
         names::BusName,
@@ -21,32 +21,25 @@ use {
 };
 
 pub struct Backend {
-    players: Rc<AsyncMutex<Players>>,
+    players: AsyncMutex<Players>,
 }
 
 pub async fn new(session: zbus::Connection) -> Result<Backend, zbus::Error> {
     let players = Players::new(session).await?;
     Ok(Backend {
-        players: Rc::new(AsyncMutex::new(players)),
+        players: AsyncMutex::new(players),
     })
 }
 
-pub async fn split(backend: Backend) -> Result<(Proxy, Stream), zbus::Error> {
-    Ok((
-        Proxy {
-            players: backend.players.clone(),
-        },
-        Stream {
-            players: backend.players,
-        },
-    ))
+pub async fn split<'a>(backend: &'a Backend) -> Result<(Proxy<'a>, Stream<'a>), zbus::Error> {
+    Ok((Proxy { backend }, Stream { backend }))
 }
 
-pub struct Proxy {
-    players: Rc<AsyncMutex<Players>>,
+pub struct Proxy<'a> {
+    backend: &'a Backend,
 }
 
-impl backend::Proxy for Proxy {
+impl backend::Proxy for Proxy<'_> {
     type Error = zbus::Error;
 
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error> {
@@ -55,7 +48,8 @@ impl backend::Proxy for Proxy {
                 (CecKeypress { keycode, .. }, true) => match keycode {
                     CecUserControlCode::Play => {
                         try_join_all(
-                            self.players
+                            self.backend
+                                .players
                                 .try_lock()
                                 .unwrap()
                                 .iter()
@@ -65,7 +59,8 @@ impl backend::Proxy for Proxy {
                     }
                     CecUserControlCode::Pause => {
                         try_join_all(
-                            self.players
+                            self.backend
+                                .players
                                 .try_lock()
                                 .unwrap()
                                 .iter()
@@ -75,7 +70,8 @@ impl backend::Proxy for Proxy {
                     }
                     CecUserControlCode::Stop => {
                         try_join_all(
-                            self.players
+                            self.backend
+                                .players
                                 .try_lock()
                                 .unwrap()
                                 .iter()
@@ -84,26 +80,31 @@ impl backend::Proxy for Proxy {
                         .await?;
                     }
                     CecUserControlCode::FastForward => {
-                        try_join_all(self.players.try_lock().unwrap().iter().map(|player| {
-                            player
-                                .proxy
-                                .pause()
-                                .and_then(|_| player.proxy.seek(10000000))
-                        }))
+                        try_join_all(self.backend.players.try_lock().unwrap().iter().map(
+                            |player| {
+                                player
+                                    .proxy
+                                    .pause()
+                                    .and_then(|_| player.proxy.seek(10000000))
+                            },
+                        ))
                         .await?;
                     }
                     CecUserControlCode::Rewind => {
-                        try_join_all(self.players.try_lock().unwrap().iter().map(|player| {
-                            player
-                                .proxy
-                                .pause()
-                                .and_then(|_| player.proxy.seek(-10000000))
-                        }))
+                        try_join_all(self.backend.players.try_lock().unwrap().iter().map(
+                            |player| {
+                                player
+                                    .proxy
+                                    .pause()
+                                    .and_then(|_| player.proxy.seek(-10000000))
+                            },
+                        ))
                         .await?;
                     }
                     CecUserControlCode::Forward => {
                         try_join_all(
-                            self.players
+                            self.backend
+                                .players
                                 .try_lock()
                                 .unwrap()
                                 .iter()
@@ -113,7 +114,8 @@ impl backend::Proxy for Proxy {
                     }
                     CecUserControlCode::Backward => {
                         try_join_all(
-                            self.players
+                            self.backend
+                                .players
                                 .try_lock()
                                 .unwrap()
                                 .iter()
@@ -132,11 +134,11 @@ impl backend::Proxy for Proxy {
     }
 }
 
-pub struct Stream {
-    players: Rc<AsyncMutex<Players>>,
+pub struct Stream<'a> {
+    backend: &'a Backend,
 }
 
-impl backend::Stream for Stream {
+impl backend::Stream for Stream<'_> {
     type Error = zbus::Error;
 
     fn into_stream(self) -> impl futures_util::Stream<Item = Result<Request, Self::Error>> {
@@ -144,14 +146,14 @@ impl backend::Stream for Stream {
     }
 }
 
-impl futures_util::Stream for Stream {
+impl futures_util::Stream for Stream<'_> {
     type Item = Result<Request, zbus::Error>;
 
     fn poll_next(
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        let mut players = ready!(self.players.lock().poll_unpin(cx));
+        let mut players = ready!(self.backend.players.lock().poll_unpin(cx));
         players.poll_next_unpin_inner(cx)
     }
 }

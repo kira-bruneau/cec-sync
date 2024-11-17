@@ -35,9 +35,9 @@ impl Backend {
 impl backend::Backend for Backend {
     type Error = Error;
 
-    type Proxy = ();
+    type Proxy<'a> = ();
 
-    type Stream = Stream;
+    type Stream<'a> = Stream;
 
     async fn new() -> Result<Self, Self::Error> {
         let path = Self::path();
@@ -47,11 +47,11 @@ impl backend::Backend for Backend {
         })
     }
 
-    async fn split(self) -> Result<(Self::Proxy, Self::Stream), Self::Error> {
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error> {
         Ok((
             Self::Proxy::default(),
             Self::Stream {
-                socket: self.socket,
+                socket: self.socket.clone(),
             },
         ))
     }

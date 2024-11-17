@@ -12,7 +12,7 @@ use {
         CecDeviceType, CecDeviceTypeVec, CecLogLevel,
     },
     clap::{command, Parser, Subcommand},
-    futures_util::{StreamExt, TryFutureExt},
+    futures_util::StreamExt,
     meta_command::MetaCommand,
     postcard::experimental::max_size::MaxSize,
     std::{
@@ -66,12 +66,9 @@ impl Default for Command {
 async fn serve() -> Result<(), Error> {
     let (tx, rx) = async_channel::unbounded();
 
-    let (mut proxy, stream) = all::Backend::new()
-        .and_then(|backend| backend.split())
-        .await?;
-
+    let backend = all::Backend::new().await?;
+    let (mut proxy, stream) = backend.split().await?;
     let local_ex = LocalExecutor::new();
-
     local_ex
         .spawn(async move {
             while let Ok(event) = rx.recv().await {

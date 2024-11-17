@@ -15,9 +15,9 @@ pub struct Backend {
 impl backend::Backend for Backend {
     type Error = zbus::Error;
 
-    type Proxy = Proxy;
+    type Proxy<'a> = Proxy<'a>;
 
-    type Stream = Stream;
+    type Stream<'a> = Stream<'a>;
 
     async fn new() -> Result<Self, Self::Error> {
         let (systemd_logind, mpris) = try_join!(
@@ -31,10 +31,10 @@ impl backend::Backend for Backend {
         })
     }
 
-    async fn split(self) -> Result<(Self::Proxy, Self::Stream), Self::Error> {
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error> {
         let ((mpris_proxy, mpris_stream), (systemd_logind_proxy, systemd_logind_stream)) = try_join!(
-            mpris::split(self.mpris),
-            systemd_logind::split(self.systemd_logind),
+            mpris::split(&self.mpris),
+            systemd_logind::split(&self.systemd_logind)
         )?;
 
         Ok((
@@ -50,12 +50,12 @@ impl backend::Backend for Backend {
     }
 }
 
-pub struct Proxy {
-    mpris: mpris::Proxy,
-    systemd_logind: systemd_logind::Proxy,
+pub struct Proxy<'a> {
+    mpris: mpris::Proxy<'a>,
+    systemd_logind: systemd_logind::Proxy<'a>,
 }
 
-impl backend::Proxy for Proxy {
+impl backend::Proxy for Proxy<'_> {
     type Error = zbus::Error;
 
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error> {
@@ -64,12 +64,12 @@ impl backend::Proxy for Proxy {
     }
 }
 
-pub struct Stream {
-    mpris: mpris::Stream,
+pub struct Stream<'a> {
+    mpris: mpris::Stream<'a>,
     systemd_logind: systemd_logind::Stream,
 }
 
-impl backend::Stream for Stream {
+impl backend::Stream for Stream<'_> {
     type Error = zbus::Error;
 
     fn into_stream(self) -> impl futures_util::Stream<Item = Result<Request, Self::Error>> {

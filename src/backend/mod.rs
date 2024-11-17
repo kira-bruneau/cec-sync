@@ -14,13 +14,17 @@ use {
 pub trait Backend: Sized {
     type Error;
 
-    type Proxy: Proxy;
+    type Proxy<'a>: Proxy
+    where
+        Self: 'a;
 
-    type Stream: Stream;
+    type Stream<'a>: Stream
+    where
+        Self: 'a;
 
     async fn new() -> Result<Self, Self::Error>;
 
-    async fn split(self) -> Result<(Self::Proxy, Self::Stream), Self::Error>;
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error>;
 }
 
 pub trait Proxy {
