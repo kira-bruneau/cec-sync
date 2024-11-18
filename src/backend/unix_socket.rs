@@ -33,13 +33,12 @@ impl Backend {
 }
 
 impl backend::Backend for Backend {
+    type Context = ();
     type Error = Error;
-
     type Proxy<'a> = ();
-
     type Stream<'a> = Stream;
 
-    async fn new() -> Result<Self, Self::Error> {
+    async fn new(_: Self::Context) -> Result<Self, Self::Error> {
         let path = Self::path();
         let _ = fs::remove_file(&path);
         Ok(Self {

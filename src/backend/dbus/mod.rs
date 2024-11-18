@@ -13,16 +13,15 @@ pub struct Backend {
 }
 
 impl backend::Backend for Backend {
+    type Context = ();
     type Error = zbus::Error;
-
     type Proxy<'a> = Proxy<'a>;
-
     type Stream<'a> = Stream<'a>;
 
-    async fn new() -> Result<Self, Self::Error> {
+    async fn new(_: Self::Context) -> Result<Self, Self::Error> {
         let (systemd_logind, mpris) = try_join!(
-            Connection::system().and_then(systemd_logind::new),
-            Connection::session().and_then(mpris::new),
+            Connection::system().and_then(systemd_logind::Backend::new),
+            Connection::session().and_then(mpris::Backend::new),
         )?;
 
         Ok(Self {
@@ -32,10 +31,8 @@ impl backend::Backend for Backend {
     }
 
     async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error> {
-        let ((mpris_proxy, mpris_stream), (systemd_logind_proxy, systemd_logind_stream)) = try_join!(
-            mpris::split(&self.mpris),
-            systemd_logind::split(&self.systemd_logind)
-        )?;
+        let ((mpris_proxy, mpris_stream), (systemd_logind_proxy, systemd_logind_stream)) =
+            try_join!(self.mpris.split(), self.systemd_logind.split())?;
 
         Ok((
             Self::Proxy {

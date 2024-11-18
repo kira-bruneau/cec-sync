@@ -66,7 +66,7 @@ impl Default for Command {
 async fn serve() -> Result<(), Error> {
     let (tx, rx) = async_channel::unbounded();
 
-    let backend = all::Backend::new().await?;
+    let backend = all::Backend::new(()).await?;
     let (mut proxy, stream) = backend.split().await?;
     let local_ex = LocalExecutor::new();
     local_ex

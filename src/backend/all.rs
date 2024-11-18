@@ -11,18 +11,17 @@ pub struct Backend {
 }
 
 impl backend::Backend for Backend {
+    type Context = ();
     type Error = Error;
-
     type Proxy<'a> = Proxy<'a>;
-
     type Stream<'a> = Stream<'a>;
 
-    async fn new() -> Result<Self, Self::Error> {
+    async fn new(_: Self::Context) -> Result<Self, Self::Error> {
         let (unix_socket, dbus, udev, wayland) = try_join!(
-            unix_socket::Backend::new().map_err(Error::UnixSocket),
-            dbus::Backend::new().map_err(Error::Dbus),
-            udev::Backend::new().map_err(Error::Udev),
-            wayland::Backend::new().map_err(Error::Wayland),
+            unix_socket::Backend::new(()).map_err(Error::UnixSocket),
+            dbus::Backend::new(()).map_err(Error::Dbus),
+            udev::Backend::new(()).map_err(Error::Udev),
+            wayland::Backend::new(()).map_err(Error::Wayland),
         )?;
 
         Ok(Self {

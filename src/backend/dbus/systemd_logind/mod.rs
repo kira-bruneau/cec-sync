@@ -13,18 +13,28 @@ pub struct Backend {
     manager: ManagerProxy<'static>,
 }
 
-pub async fn new(system: zbus::Connection) -> Result<Backend, zbus::Error> {
-    let manager = ManagerProxy::builder(&system)
-        .cache_properties(CacheProperties::No)
-        .build()
-        .await?;
+impl backend::Backend for Backend {
+    type Context = zbus::Connection;
+    type Error = zbus::Error;
+    type Proxy<'a> = Proxy<'a>;
+    type Stream<'a> = Stream;
 
-    Ok(Backend { manager })
-}
+    async fn new(system: Self::Context) -> Result<Self, Self::Error> {
+        let manager = ManagerProxy::builder(&system)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
 
-pub async fn split(backend: &Backend) -> Result<(Proxy, Stream), zbus::Error> {
-    let prepare_for_sleep = backend.manager.receive_prepare_for_sleep().await?;
-    Ok((Proxy { backend }, Stream { prepare_for_sleep }))
+        Ok(Self { manager })
+    }
+
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error> {
+        let prepare_for_sleep = self.manager.receive_prepare_for_sleep().await?;
+        Ok((
+            Self::Proxy { backend: self },
+            Self::Stream { prepare_for_sleep },
+        ))
+    }
 }
 
 pub struct Proxy<'a> {

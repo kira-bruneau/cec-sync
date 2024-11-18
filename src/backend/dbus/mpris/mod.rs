@@ -24,15 +24,25 @@ pub struct Backend {
     players: AsyncMutex<Players>,
 }
 
-pub async fn new(session: zbus::Connection) -> Result<Backend, zbus::Error> {
-    let players = Players::new(session).await?;
-    Ok(Backend {
-        players: AsyncMutex::new(players),
-    })
-}
+impl backend::Backend for Backend {
+    type Context = zbus::Connection;
+    type Error = zbus::Error;
+    type Proxy<'a> = Proxy<'a>;
+    type Stream<'a> = Stream<'a>;
 
-pub async fn split<'a>(backend: &'a Backend) -> Result<(Proxy<'a>, Stream<'a>), zbus::Error> {
-    Ok((Proxy { backend }, Stream { backend }))
+    async fn new(session: Self::Context) -> Result<Self, Self::Error> {
+        let players = Players::new(session).await?;
+        Ok(Backend {
+            players: AsyncMutex::new(players),
+        })
+    }
+
+    async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error> {
+        Ok((
+            Self::Proxy { backend: self },
+            Self::Stream { backend: self },
+        ))
+    }
 }
 
 pub struct Proxy<'a> {

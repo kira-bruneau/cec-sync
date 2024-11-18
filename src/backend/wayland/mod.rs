@@ -46,13 +46,12 @@ pub struct Backend {
 }
 
 impl backend::Backend for Backend {
+    type Context = ();
     type Error = Error;
-
     type Proxy<'a> = Proxy;
-
     type Stream<'a> = ();
 
-    async fn new() -> Result<Self, Error> {
+    async fn new(_: Self::Context) -> Result<Self, Error> {
         Ok(Self {
             connection: Connection::connect_to_env()?,
         })

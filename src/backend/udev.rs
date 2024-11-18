@@ -26,13 +26,12 @@ impl Backend {
 }
 
 impl backend::Backend for Backend {
+    type Context = ();
     type Error = io::Error;
-
     type Proxy<'a> = ();
-
     type Stream<'a> = Stream;
 
-    async fn new() -> Result<Self, Self::Error> {
+    async fn new(_: Self::Context) -> Result<Self, Self::Error> {
         Ok(Self {})
     }
 

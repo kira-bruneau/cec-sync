@@ -12,6 +12,8 @@ use {
 };
 
 pub trait Backend: Sized {
+    type Context;
+
     type Error;
 
     type Proxy<'a>: Proxy
@@ -22,7 +24,7 @@ pub trait Backend: Sized {
     where
         Self: 'a;
 
-    async fn new() -> Result<Self, Self::Error>;
+    async fn new(ctx: Self::Context) -> Result<Self, Self::Error>;
 
     async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Self::Error>;
 }
