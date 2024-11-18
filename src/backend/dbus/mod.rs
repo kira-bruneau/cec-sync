@@ -63,7 +63,7 @@ impl backend::Proxy for Proxy<'_> {
 
 pub struct Stream<'a> {
     mpris: mpris::Stream<'a>,
-    systemd_logind: systemd_logind::Stream,
+    systemd_logind: systemd_logind::Stream<'a>,
 }
 
 impl backend::Stream for Stream<'_> {
