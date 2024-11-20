@@ -25,6 +25,5 @@ zbus = "4.4.0"
 
 [profile.release]
 lto = true
-codegen-units = 1
 panic = "abort"
 strip = true
