@@ -108,7 +108,10 @@
           default = flake-utils.lib.mkApp { drv = default; };
         };
 
-        devShells.default = craneLib.devShell { inputsFrom = [ default ]; };
+        devShells.default = craneLib.devShell {
+          inputsFrom = [ default ];
+          inherit (default) C_INCLUDE_PATH;
+        };
       }
     );
 }
