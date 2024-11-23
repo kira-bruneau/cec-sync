@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::{self, Request},
-        meta_command::MetaCommand,
+        macro_command::MacroCommand,
     },
     async_io::Async,
     async_net::unix::UnixDatagram,
@@ -64,26 +64,26 @@ impl backend::Stream for Stream {
     type Error = Error;
 
     fn into_stream(self) -> impl futures_util::Stream<Item = Result<Request, Self::Error>> {
-        MetaCommandStream {
+        MacroCommandStream {
             inner: self.socket.into(),
         }
-        .map(|result| result.map(Request::MetaCommand))
+        .map(|result| result.map(Request::Macro))
     }
 }
 
-struct MetaCommandStream {
+struct MacroCommandStream {
     inner: Arc<Async<std::os::unix::net::UnixDatagram>>,
 }
 
-impl futures_util::Stream for MetaCommandStream {
-    type Item = Result<MetaCommand, Error>;
+impl futures_util::Stream for MacroCommandStream {
+    type Item = Result<MacroCommand, Error>;
 
     fn poll_next(
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         loop {
-            let mut buf = [0u8; MetaCommand::POSTCARD_MAX_SIZE];
+            let mut buf = [0u8; MacroCommand::POSTCARD_MAX_SIZE];
             match self.inner.get_ref().recv(&mut buf) {
                 Ok(0) => return Poll::Ready(None),
                 Ok(_) => {

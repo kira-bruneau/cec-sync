@@ -3,7 +3,7 @@ mod player;
 use {
     crate::{
         backend::{self, Request},
-        meta_command::{DeckInfo, MetaCommand},
+        macro_command::{DeckInfo, MacroCommand},
         Event,
     },
     cec_rs::{CecKeypress, CecUserControlCode},
@@ -283,9 +283,7 @@ impl Players {
 
             if self.deck_info != deck_info {
                 self.deck_info = deck_info;
-                return Poll::Ready(Some(Ok(Request::MetaCommand(MetaCommand::DeckInfo(
-                    deck_info,
-                )))));
+                return Poll::Ready(Some(Ok(Request::Macro(MacroCommand::DeckInfo(deck_info)))));
             }
         }
 

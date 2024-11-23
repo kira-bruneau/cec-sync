@@ -12,7 +12,7 @@ use {
 };
 
 #[derive(Subcommand, Serialize, Deserialize, MaxSize, Debug, Copy, Clone)]
-pub enum MetaCommand {
+pub enum MacroCommand {
     #[command(subcommand, about = "Change active source device")]
     Active(Active),
 
@@ -111,32 +111,32 @@ impl From<DeckInfo> for CecDeckInfo {
     }
 }
 
-impl MetaCommand {
+impl MacroCommand {
     pub fn run(self, cec: Arc<CecConnection>) -> impl Future<Output = Result<(), CecError>> {
         unblock(move || self.run_sync(&cec))
     }
 
     fn run_sync(self, cec: &CecConnection) -> Result<(), CecError> {
         match self {
-            MetaCommand::Active(Active::Set { cooperative: false }) => active_set(cec),
-            MetaCommand::Active(Active::Set { cooperative: true }) => active_set_cooperative(cec),
-            MetaCommand::Active(Active::Unset) => active_unset(cec),
-            MetaCommand::Power(Power::On) => power_on(cec),
-            MetaCommand::Power(Power::Off { cooperative: false }) => power_off(cec),
-            MetaCommand::Power(Power::Off { cooperative: true }) => power_off_cooperative(cec),
-            MetaCommand::Volume(Volume::Up { steps }) => volume_up(cec, steps),
-            MetaCommand::Volume(Volume::Down { steps }) => volume_down(cec, steps),
-            MetaCommand::Volume(Volume::Set { volume }) => volume_set(cec, volume),
-            MetaCommand::Mute {
+            MacroCommand::Active(Active::Set { cooperative: false }) => active_set(cec),
+            MacroCommand::Active(Active::Set { cooperative: true }) => active_set_cooperative(cec),
+            MacroCommand::Active(Active::Unset) => active_unset(cec),
+            MacroCommand::Power(Power::On) => power_on(cec),
+            MacroCommand::Power(Power::Off { cooperative: false }) => power_off(cec),
+            MacroCommand::Power(Power::Off { cooperative: true }) => power_off_cooperative(cec),
+            MacroCommand::Volume(Volume::Up { steps }) => volume_up(cec, steps),
+            MacroCommand::Volume(Volume::Down { steps }) => volume_down(cec, steps),
+            MacroCommand::Volume(Volume::Set { volume }) => volume_set(cec, volume),
+            MacroCommand::Mute {
                 command: None | Some(Mute::Toggle),
             } => mute_toggle(cec),
-            MetaCommand::Mute {
+            MacroCommand::Mute {
                 command: Some(Mute::On),
             } => mute_on(cec),
-            MetaCommand::Mute {
+            MacroCommand::Mute {
                 command: Some(Mute::Off),
             } => mute_off(cec),
-            MetaCommand::DeckInfo(deck_info) => deck_info_set(cec, deck_info.into()),
+            MacroCommand::DeckInfo(deck_info) => deck_info_set(cec, deck_info.into()),
         }
     }
 }

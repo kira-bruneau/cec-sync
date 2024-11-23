@@ -5,7 +5,7 @@ pub mod unix_socket;
 pub mod wayland;
 
 use {
-    crate::meta_command::MetaCommand,
+    crate::macro_command::MacroCommand,
     cec_rs::{CecCommand, CecKeypress, CecLogMessage},
     futures_util::stream,
     std::ffi::CString,
@@ -71,5 +71,5 @@ impl Stream for () {
 pub enum Request {
     ResetDevice(Option<CString>),
     RemoveDevice(#[expect(dead_code)] CString),
-    MetaCommand(MetaCommand),
+    Macro(MacroCommand),
 }

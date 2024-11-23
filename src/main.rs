@@ -1,5 +1,5 @@
 mod backend;
-mod meta_command;
+mod macro_command;
 
 use {
     async_channel::Sender,
@@ -13,7 +13,7 @@ use {
     },
     clap::{command, Parser, Subcommand},
     futures_util::StreamExt,
-    meta_command::MetaCommand,
+    macro_command::MacroCommand,
     postcard::experimental::max_size::MaxSize,
     std::{
         fmt::Debug,
@@ -45,14 +45,14 @@ enum Command {
     Serve,
 
     #[command(flatten)]
-    MetaCommand(MetaCommand),
+    Macro(MacroCommand),
 }
 
 impl Command {
     pub async fn run(self) -> Result<(), Error> {
         match self {
             Command::Serve => serve().await,
-            Command::MetaCommand(command) => send_or_run(command).await,
+            Command::Macro(command) => send_or_run(command).await,
         }
     }
 }
@@ -129,7 +129,7 @@ async fn serve() -> Result<(), Error> {
                             cec = cec_build(config)?;
                         }
                         Request::RemoveDevice(_) => cec = None,
-                        Request::MetaCommand(command) => {
+                        Request::Macro(command) => {
                             if let Some(cec) = &cec {
                                 log_result(command.run(cec.clone()).await);
                             }
@@ -143,7 +143,7 @@ async fn serve() -> Result<(), Error> {
         .await
 }
 
-async fn send_or_run(command: MetaCommand) -> Result<(), Error> {
+async fn send_or_run(command: MacroCommand) -> Result<(), Error> {
     match send(command).await {
         Ok(()) => return Ok(()),
         Err(err)
@@ -165,11 +165,11 @@ async fn send_or_run(command: MetaCommand) -> Result<(), Error> {
     Ok(())
 }
 
-async fn send(command: MetaCommand) -> Result<(), io::Error> {
+async fn send(command: MacroCommand) -> Result<(), io::Error> {
     let socket = UnixDatagram::unbound()?;
 
     // Serialization should never fail
-    let mut buf = [0u8; MetaCommand::POSTCARD_MAX_SIZE];
+    let mut buf = [0u8; MacroCommand::POSTCARD_MAX_SIZE];
     let command = postcard::to_slice(&command, &mut buf).unwrap();
 
     let path = unix_socket::Backend::path();

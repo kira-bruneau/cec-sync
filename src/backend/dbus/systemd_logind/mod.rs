@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::{self, Event, Request},
-        meta_command::{MetaCommand, Power},
+        macro_command::{MacroCommand, Power},
     },
     async_stream::try_stream,
     cec_rs::{CecCommand, CecOpcode},
@@ -100,14 +100,14 @@ impl backend::Stream for Stream<'_> {
                 match event.args()?.start {
                     true => {
                         if self.backend.sleep_lock.borrow().is_some() {
-                            yield Request::MetaCommand(MetaCommand::Power(Power::Off {
+                            yield Request::Macro(MacroCommand::Power(Power::Off {
                                 cooperative: true,
                             }));
                         }
                     }
                     false => {
                         // After resuming from sleep, libcec gets stuck in an
-                        // infinite retry loop if we send MetaCommand::Active,
+                        // infinite retry loop if we send MacroCommand::Active,
                         // so just reset the connection instead
                         yield Request::ResetDevice(None);
 
