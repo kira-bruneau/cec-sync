@@ -278,27 +278,34 @@ impl<State> AsyncEventQueue<State> {
         Ok(dispatched)
     }
 
-    pub async fn dispatch(&mut self, state: &mut State) -> Result<usize, DispatchError> {
-        poll_fn(|cx| self.poll_dispatch(cx, state)).await
+    async fn dispatch(&mut self, state: &mut State) -> Result<usize, DispatchError> {
+        // dispatch_pending won't move & drop the inner resource, so the get_mut call is safe
+        let dispatched = unsafe { self.inner.get_mut().dispatch_pending(state)? };
+        if dispatched > 0 {
+            return Ok(dispatched);
+        }
+
+        self.flush().await?;
+        self.read().await?;
+        unsafe { self.inner.get_mut().dispatch_pending(state) }
     }
 
-    fn poll_dispatch(
-        &mut self,
-        cx: &mut Context,
-        state: &mut State,
-    ) -> Poll<Result<usize, DispatchError>> {
+    async fn read(&self) -> Result<(), WaylandError> {
+        poll_fn(|cx| self.poll_read(cx)).await
+    }
+
+    fn poll_read(&self, cx: &mut Context) -> Poll<Result<(), WaylandError>> {
         loop {
-            // dispatch_pending won't move & drop the inner resource, so the get_mut call is safe
-            let dispatched = unsafe { self.inner.get_mut().dispatch_pending(state)? };
-            if dispatched > 0 {
-                return Poll::Ready(Ok(dispatched));
-            }
-
-            ready!(self.poll_flush(cx))?;
-
             if let Some(guard) = self.inner.get_ref().prepare_read() {
-                ready!(self.inner.poll_readable(cx)).map_err(|err| WaylandError::Io(err))?;
-                guard.read()?;
+                match guard.read() {
+                    Ok(_) => return Poll::Ready(Ok(())),
+                    Err(WaylandError::Io(err)) if err.kind() == io::ErrorKind::WouldBlock => (),
+                    Err(err) => return Poll::Ready(Err(err)),
+                };
+
+                ready!(self.inner.poll_writable(cx))?;
+            } else {
+                return Poll::Ready(Ok(()));
             }
         }
     }
@@ -311,11 +318,11 @@ impl<State> AsyncEventQueue<State> {
         loop {
             match self.inner.get_ref().flush() {
                 Ok(()) => return Poll::Ready(Ok(())),
-                Err(WaylandError::Io(err)) if err.kind() == io::ErrorKind::WouldBlock => {
-                    ready!(self.inner.poll_writable(cx))?
-                }
+                Err(WaylandError::Io(err)) if err.kind() == io::ErrorKind::WouldBlock => (),
                 Err(err) => return Poll::Ready(Err(err)),
             };
+
+            ready!(self.inner.poll_writable(cx))?;
         }
     }
 }
