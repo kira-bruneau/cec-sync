@@ -28,12 +28,22 @@ use {
     std::{
         future::poll_fn,
         io,
+        os::fd::OwnedFd,
+        sync::{
+            atomic::{self, AtomicBool},
+            Arc,
+        },
         task::{Context, Poll},
+    },
+    wayland_backend::{
+        client::{ObjectData, ObjectId},
+        protocol::Message,
     },
     wayland_client::{
         backend::WaylandError,
         protocol::{
             __interfaces::WL_SEAT_INTERFACE,
+            wl_display,
             wl_registry::{self, WlRegistry},
             wl_seat::{self, WlSeat},
         },
@@ -59,21 +69,12 @@ impl backend::Backend for Backend {
 
     async fn split<'a>(&'a self) -> Result<(Self::Proxy<'a>, Self::Stream<'a>), Error> {
         let display = self.connection.display();
-        let mut event_queue = AsyncEventQueue::new(self.connection.new_event_queue())?;
+        let mut event_queue = AsyncEventQueue::try_from(self.connection.clone())?;
         let qh = event_queue.handle();
         let _registry = display.get_registry(&qh, ());
-
         let mut state = State::new();
         event_queue.dispatch(&mut state).await?;
-
-        match (state.seat.as_ref(), state.input_method_manager.as_ref()) {
-            (Some(seat), Some(input_method_manager)) => {
-                state.input_method = Some(input_method_manager.create_input_method(seat, &qh, ()));
-                event_queue.dispatch(&mut state).await?;
-            }
-            _ => (),
-        }
-
+        event_queue.roundtrip(&mut state).await?;
         Ok((Self::Proxy { state, event_queue }, Self::Stream::default()))
     }
 }
@@ -186,6 +187,14 @@ impl Dispatch<WlRegistry, ()> for State {
                 }
                 _ => (),
             }
+
+            match (state.seat.as_ref(), state.input_method_manager.as_ref()) {
+                (Some(seat), Some(input_method_manager)) => {
+                    state.input_method =
+                        Some(input_method_manager.create_input_method(seat, &qh, ()));
+                }
+                _ => (),
+            }
         }
     }
 }
@@ -243,18 +252,30 @@ pub enum Error {
 }
 
 struct AsyncEventQueue<State> {
+    connection: Connection, // EventQueue has Connection, but it's private
     inner: Async<EventQueue<State>>,
 }
 
 impl<State> AsyncEventQueue<State> {
-    pub fn new(inner: EventQueue<State>) -> io::Result<Self> {
-        Ok(Self {
-            inner: Async::new_nonblocking(inner)?,
-        })
-    }
-
     pub fn handle(&self) -> QueueHandle<State> {
         self.inner.get_ref().handle()
+    }
+
+    pub async fn roundtrip(&mut self, state: &mut State) -> Result<usize, DispatchError> {
+        let done = Arc::new(SyncData::default());
+
+        let display = self.connection.display();
+        self.connection
+            .send_request(&display, wl_display::Request::Sync {}, Some(done.clone()))
+            .map_err(|_| WaylandError::Io(io::ErrorKind::BrokenPipe.into()))?;
+
+        let mut dispatched = 0;
+
+        while !done.done.load(atomic::Ordering::Relaxed) {
+            dispatched += self.dispatch(state).await?;
+        }
+
+        Ok(dispatched)
     }
 
     pub async fn dispatch(&mut self, state: &mut State) -> Result<usize, DispatchError> {
@@ -297,4 +318,31 @@ impl<State> AsyncEventQueue<State> {
             };
         }
     }
+}
+
+impl<State> TryFrom<Connection> for AsyncEventQueue<State> {
+    type Error = io::Error;
+
+    fn try_from(connection: Connection) -> Result<Self, Self::Error> {
+        let inner = Async::new_nonblocking(connection.new_event_queue())?;
+        Ok(Self { connection, inner })
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct SyncData {
+    pub(crate) done: AtomicBool,
+}
+
+impl ObjectData for SyncData {
+    fn event(
+        self: Arc<Self>,
+        _handle: &wayland_backend::client::Backend,
+        _msg: Message<ObjectId, OwnedFd>,
+    ) -> Option<Arc<dyn ObjectData>> {
+        self.done.store(true, atomic::Ordering::Relaxed);
+        None
+    }
+
+    fn destroyed(&self, _: ObjectId) {}
 }
