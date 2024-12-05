@@ -12,7 +12,7 @@ use {
         CecDeviceType, CecDeviceTypeVec, CecLogLevel,
     },
     clap::{command, Parser, Subcommand},
-    futures_util::StreamExt,
+    futures_util::{try_join, StreamExt},
     macro_command::MacroCommand,
     postcard::experimental::max_size::MaxSize,
     std::{
@@ -69,14 +69,17 @@ async fn serve() -> Result<(), Error> {
     let backend = all::Backend::new(()).await?;
     let (mut proxy, stream) = backend.split().await?;
     let local_ex = LocalExecutor::new();
-    local_ex
+
+    let input_task = local_ex
         .spawn(async move {
             while let Ok(event) = rx.recv().await {
-                match &event {
+                log_result(proxy.event(&event).await);
+
+                match event {
                     Event::LogMessage(log_message) => eprintln!(
                         "{}: cec: {}",
                         match log_message.level {
-                            CecLogLevel::Error => "error",
+                            CecLogLevel::Error => return Err(CecError::Log(log_message.message)),
                             CecLogLevel::Warning => "warning",
                             CecLogLevel::Notice => "notice",
                             CecLogLevel::Traffic => "traffic",
@@ -87,60 +90,63 @@ async fn serve() -> Result<(), Error> {
                     ),
                     _ => (),
                 };
-
-                log_result(proxy.event(&event).await);
             }
-        })
-        .detach();
 
-    local_ex
-        .run(async move {
-            // NOTE: For now, this assumes that there's only ever one
-            // HDMI port that supports CEC.
-            //
-            // If we want to support multiple, we need to decide how
-            // to tell the backends what port an event came from.
-            // (would iHDMIPort from the CEC configuration work?)
-            //
-            // We also need to carefully consider what should be
-            // handled globally vs. per-display.
-            //
-            // eg. Two different connected TVs could have different
-            // volumes. It should be possible to adjust each
-            // individually.
-            let mut cec = cec_build(cec_config_evented(tx.clone()))?;
-            let mut stream = stream.into_stream();
-            while let Some(action) = stream.next().await {
-                if let Some(action) = log_result(action) {
-                    match action {
-                        Request::ResetDevice(port) => {
-                            // Explicitly drop old cec connection to
-                            // make sure it doesn't keep a lock on the
-                            // device when we create a new connection
-                            cec = None;
-                            let _ = cec;
+            Ok(())
+        });
 
-                            let config = cec_config_evented(tx.clone());
-                            let config = match port {
-                                Some(port) => config.port(port),
-                                None => config,
-                            };
+    let output_task = local_ex.spawn(async move {
+        // NOTE: For now, this assumes that there's only ever one
+        // HDMI port that supports CEC.
+        //
+        // If we want to support multiple, we need to decide how
+        // to tell the backends what port an event came from.
+        // (would iHDMIPort from the CEC configuration work?)
+        //
+        // We also need to carefully consider what should be
+        // handled globally vs. per-display.
+        //
+        // eg. Two different connected TVs could have different
+        // volumes. It should be possible to adjust each
+        // individually.
+        let mut cec = cec_build(cec_config_evented(tx.clone()))?;
+        let mut stream = stream.into_stream();
+        while let Some(action) = stream.next().await {
+            if let Some(action) = log_result(action) {
+                match action {
+                    Request::ResetDevice(port) => {
+                        // Explicitly drop old cec connection to
+                        // make sure it doesn't keep a lock on the
+                        // device when we create a new connection
+                        cec = None;
+                        let _ = cec;
 
-                            cec = cec_build(config)?;
-                        }
-                        Request::RemoveDevice(_) => cec = None,
-                        Request::Macro(command) => {
-                            if let Some(cec) = &cec {
-                                log_result(command.run(cec.clone()).await);
-                            }
+                        let config = cec_config_evented(tx.clone());
+                        let config = match port {
+                            Some(port) => config.port(port),
+                            None => config,
+                        };
+
+                        cec = cec_build(config)?;
+                    }
+                    Request::RemoveDevice(_) => cec = None,
+                    Request::Macro(command) => {
+                        if let Some(cec) = &cec {
+                            log_result(command.run(cec.clone()).await);
                         }
                     }
                 }
             }
+        }
 
-            Ok(())
-        })
-        .await
+        Ok(())
+    });
+
+    local_ex
+        .run(async { try_join!(input_task, output_task) })
+        .await?;
+
+    Ok(())
 }
 
 async fn send_or_run(command: MacroCommand) -> Result<(), Error> {
@@ -266,6 +272,8 @@ pub enum CecError {
         CecAudioStatusError::Reserved(_) => "reserved audio status",
     })]
     AudioStatus(CecAudioStatusError),
+    #[error("{0}")]
+    Log(String),
 }
 
 impl From<CecConnectionError> for CecError {
