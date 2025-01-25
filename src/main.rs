@@ -70,30 +70,29 @@ async fn serve() -> Result<(), Error> {
     let (mut proxy, stream) = backend.split().await?;
     let local_ex = LocalExecutor::new();
 
-    let input_task = local_ex
-        .spawn(async move {
-            while let Ok(event) = rx.recv().await {
-                log_result(proxy.event(&event).await);
+    let input_task = local_ex.spawn(async move {
+        while let Ok(event) = rx.recv().await {
+            log_result(proxy.event(&event).await);
 
-                match event {
-                    Event::LogMessage(log_message) => eprintln!(
-                        "{}: cec: {}",
-                        match log_message.level {
-                            CecLogLevel::Error => return Err(CecError::Log(log_message.message)),
-                            CecLogLevel::Warning => "warning",
-                            CecLogLevel::Notice => "notice",
-                            CecLogLevel::Traffic => "traffic",
-                            CecLogLevel::Debug => "debug",
-                            CecLogLevel::All => unreachable!(),
-                        },
-                        log_message.message
-                    ),
-                    _ => (),
-                };
-            }
+            match event {
+                Event::LogMessage(log_message) => eprintln!(
+                    "{}: cec: {}",
+                    match log_message.level {
+                        CecLogLevel::Error => return Err(CecError::Log(log_message.message)),
+                        CecLogLevel::Warning => "warning",
+                        CecLogLevel::Notice => "notice",
+                        CecLogLevel::Traffic => "traffic",
+                        CecLogLevel::Debug => "debug",
+                        CecLogLevel::All => unreachable!(),
+                    },
+                    log_message.message
+                ),
+                _ => (),
+            };
+        }
 
-            Ok(())
-        });
+        Ok(())
+    });
 
     let output_task = local_ex.spawn(async move {
         // NOTE: For now, this assumes that there's only ever one
