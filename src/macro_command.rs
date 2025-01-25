@@ -2,8 +2,8 @@ use {
     crate::CecError,
     blocking::unblock,
     cec_rs::{
-        CecAudioStatusError, CecConnection, CecDeckInfo, CecDeviceType, CecLogicalAddress,
-        CecPowerStatus, CecUserControlCode, KnownAndRegisteredCecLogicalAddress,
+        CecConnection, CecDeckInfo, CecDeviceType, CecLogicalAddress, CecPowerStatus,
+        CecUserControlCode, KnownAndRegisteredCecLogicalAddress, TryFromCecAudioStatusError,
     },
     clap::Subcommand,
     postcard::experimental::max_size::MaxSize,
@@ -191,7 +191,7 @@ fn volume_up(cec: &CecConnection, steps: u8) -> Result<(), CecError> {
     for _ in 0..steps {
         match cec.volume_up(true) {
             Ok(_) => (),
-            Err(CecAudioStatusError::Unknown) => (),
+            Err(TryFromCecAudioStatusError::Unknown) => (),
             Err(err) => return Err(CecError::AudioStatus(err)),
         }
     }
@@ -203,7 +203,7 @@ fn volume_down(cec: &CecConnection, steps: u8) -> Result<(), CecError> {
     for _ in 0..steps {
         match cec.volume_down(true) {
             Ok(_) => (),
-            Err(CecAudioStatusError::Unknown) => (),
+            Err(TryFromCecAudioStatusError::Unknown) => (),
             Err(err) => return Err(CecError::AudioStatus(err)),
         }
     }
@@ -226,7 +226,7 @@ fn volume_set(cec: &CecConnection, volume: u8) -> Result<(), CecError> {
 fn mute_toggle(cec: &CecConnection) -> Result<(), CecError> {
     match cec.audio_toggle_mute() {
         Ok(_) => (),
-        Err(CecAudioStatusError::Unknown) => {
+        Err(TryFromCecAudioStatusError::Unknown) => {
             cec.send_keypress(CecLogicalAddress::Tv, CecUserControlCode::Mute, true)?;
             cec.send_key_release(CecLogicalAddress::Tv, true)?
         }
@@ -239,7 +239,7 @@ fn mute_toggle(cec: &CecConnection) -> Result<(), CecError> {
 fn mute_on(cec: &CecConnection) -> Result<(), CecError> {
     match cec.audio_mute() {
         Ok(_) => (),
-        Err(CecAudioStatusError::Unknown) => {
+        Err(TryFromCecAudioStatusError::Unknown) => {
             cec.send_keypress(
                 CecLogicalAddress::Tv,
                 CecUserControlCode::MuteFunction,
@@ -256,7 +256,7 @@ fn mute_on(cec: &CecConnection) -> Result<(), CecError> {
 fn mute_off(cec: &CecConnection) -> Result<(), CecError> {
     match cec.audio_mute() {
         Ok(_) => (),
-        Err(CecAudioStatusError::Unknown) => {
+        Err(TryFromCecAudioStatusError::Unknown) => {
             cec.send_keypress(
                 CecLogicalAddress::Tv,
                 CecUserControlCode::RestoreVolumeFunction,

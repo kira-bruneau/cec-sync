@@ -8,8 +8,8 @@ use {
     async_net::unix::UnixDatagram,
     backend::{all, unix_socket, Backend, Event, Proxy, Request, Stream},
     cec_rs::{
-        CecAudioStatusError, CecConnection, CecConnectionCfgBuilder, CecConnectionError,
-        CecDeviceType, CecDeviceTypeVec, CecLogLevel,
+        CecConnection, CecConnectionCfgBuilder, CecConnectionResultError, CecDeviceType,
+        CecDeviceTypeVec, CecLogLevel, TryFromCecAudioStatusError,
     },
     clap::{command, Parser, Subcommand},
     futures_util::{try_join, StreamExt},
@@ -206,12 +206,12 @@ fn cec_config() -> CecConnectionCfgBuilder {
 
 fn cec_build(
     config: CecConnectionCfgBuilder,
-) -> Result<Option<Arc<CecConnection>>, CecConnectionError> {
+) -> Result<Option<Arc<CecConnection>>, CecConnectionResultError> {
     Ok(match config.build().unwrap().open() {
         Ok(cec) => Some(Arc::new(cec)),
         Err(
-            err @ CecConnectionError::LibInitFailed
-            | err @ CecConnectionError::CallbackRegistrationFailed,
+            err @ CecConnectionResultError::LibInitFailed
+            | err @ CecConnectionResultError::CallbackRegistrationFailed,
         ) => {
             return Err(err);
         }
@@ -250,8 +250,8 @@ enum Error {
     Send(io::Error),
 }
 
-impl From<CecConnectionError> for Error {
-    fn from(value: CecConnectionError) -> Self {
+impl From<CecConnectionResultError> for Error {
+    fn from(value: CecConnectionResultError) -> Self {
         Self::Cec(CecError::Connection(value))
     }
 }
@@ -259,30 +259,30 @@ impl From<CecConnectionError> for Error {
 #[derive(thiserror::Error, Debug)]
 pub enum CecError {
     #[error("{}", match .0 {
-        CecConnectionError::LibInitFailed => "init failed",
-        CecConnectionError::CallbackRegistrationFailed => "callback registration failed",
-        CecConnectionError::NoAdapterFound => "no adapter found",
-        CecConnectionError::AdapterOpenFailed => "failed to open adapter",
-        CecConnectionError::TransmitFailed => "transmit failed",
+        CecConnectionResultError::LibInitFailed => "init failed",
+        CecConnectionResultError::CallbackRegistrationFailed => "callback registration failed",
+        CecConnectionResultError::NoAdapterFound => "no adapter found",
+        CecConnectionResultError::AdapterOpenFailed => "failed to open adapter",
+        CecConnectionResultError::TransmitFailed => "transmit failed",
     })]
-    Connection(CecConnectionError),
+    Connection(CecConnectionResultError),
     #[error("{}", match .0 {
-        CecAudioStatusError::Unknown => "unknown audio status",
-        CecAudioStatusError::Reserved(_) => "reserved audio status",
+        TryFromCecAudioStatusError::Unknown => "unknown audio status",
+        TryFromCecAudioStatusError::Reserved(_) => "reserved audio status",
     })]
-    AudioStatus(CecAudioStatusError),
+    AudioStatus(TryFromCecAudioStatusError),
     #[error("{0}")]
     Log(String),
 }
 
-impl From<CecConnectionError> for CecError {
-    fn from(value: CecConnectionError) -> Self {
+impl From<CecConnectionResultError> for CecError {
+    fn from(value: CecConnectionResultError) -> Self {
         Self::Connection(value)
     }
 }
 
-impl From<CecAudioStatusError> for CecError {
-    fn from(value: CecAudioStatusError) -> Self {
+impl From<TryFromCecAudioStatusError> for CecError {
+    fn from(value: TryFromCecAudioStatusError) -> Self {
         Self::AudioStatus(value)
     }
 }

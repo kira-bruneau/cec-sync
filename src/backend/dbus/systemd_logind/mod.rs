@@ -88,7 +88,7 @@ impl backend::Proxy for Proxy<'_> {
 
 pub struct Stream<'a> {
     backend: &'a Backend,
-    prepare_for_sleep: PrepareForSleepStream<'static>,
+    prepare_for_sleep: PrepareForSleepStream,
 }
 
 impl backend::Stream for Stream<'_> {
