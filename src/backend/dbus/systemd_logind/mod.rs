@@ -75,7 +75,17 @@ impl backend::Proxy for Proxy<'_> {
                     ..
                 } => {
                     self.backend.sleep_lock.replace(None);
-                    self.backend.manager.suspend(false).await?;
+                    match self.backend.manager.suspend(false).await {
+                        Ok(()) => (),
+                        Err(err) => match err {
+                            zbus::Error::MethodError(name, _detail, _reply)
+                                if name == "org.freedesktop.login1.OperationInProgress" =>
+                            {
+                                ()
+                            }
+                            _ => return Err(err),
+                        },
+                    }
                 }
                 _ => (),
             },
