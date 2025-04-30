@@ -72,13 +72,13 @@ async fn serve() -> Result<(), Error> {
 
     let input_task = local_ex.spawn(async move {
         while let Ok(event) = rx.recv().await {
-            log_result(proxy.event(&event).await);
-
+            proxy.event(&event).await?;
             match event {
                 Event::LogMessage(log_message) => eprintln!(
                     "{}: cec: {}",
                     match log_message.level {
-                        CecLogLevel::Error => return Err(CecError::Log(log_message.message)),
+                        CecLogLevel::Error =>
+                            return Err(Error::Cec(CecError::Log(log_message.message))),
                         CecLogLevel::Warning => "warning",
                         CecLogLevel::Notice => "notice",
                         CecLogLevel::Traffic => "traffic",
@@ -111,28 +111,26 @@ async fn serve() -> Result<(), Error> {
         let mut cec = cec_build(cec_config_evented(tx.clone()))?;
         let mut stream = stream.into_stream();
         while let Some(action) = stream.next().await {
-            if let Some(action) = log_result(action) {
-                match action {
-                    Request::ResetDevice(port) => {
-                        // Explicitly drop old cec connection to
-                        // make sure it doesn't keep a lock on the
-                        // device when we create a new connection
-                        cec = None;
-                        let _ = cec;
+            match action? {
+                Request::ResetDevice(port) => {
+                    // Explicitly drop old cec connection to
+                    // make sure it doesn't keep a lock on the
+                    // device when we create a new connection
+                    cec = None;
+                    let _ = cec;
 
-                        let config = cec_config_evented(tx.clone());
-                        let config = match port {
-                            Some(port) => config.port(port),
-                            None => config,
-                        };
+                    let config = cec_config_evented(tx.clone());
+                    let config = match port {
+                        Some(port) => config.port(port),
+                        None => config,
+                    };
 
-                        cec = cec_build(config)?;
-                    }
-                    Request::RemoveDevice(_) => cec = None,
-                    Request::Macro(command) => {
-                        if let Some(cec) = &cec {
-                            log_result(command.run(cec.clone()).await);
-                        }
+                    cec = cec_build(config)?;
+                }
+                Request::RemoveDevice(_) => cec = None,
+                Request::Macro(command) => {
+                    if let Some(cec) = &cec {
+                        command.run(cec.clone()).await?;
                     }
                 }
             }
@@ -220,16 +218,6 @@ fn cec_build(
             None
         }
     })
-}
-
-fn log_result<T, E: Into<Error>>(result: Result<T, E>) -> Option<T> {
-    match result {
-        Err(err) => {
-            log_error(err);
-            None
-        }
-        Ok(ok) => Some(ok),
-    }
 }
 
 fn log_error<E: Into<Error>>(err: E) {
