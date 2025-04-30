@@ -37,7 +37,7 @@ use {
     },
     wayland_backend::{
         client::{ObjectData, ObjectId},
-        protocol::Message,
+        protocol::{Message, ProtocolError},
     },
     wayland_client::{
         backend::WaylandError,
@@ -244,11 +244,29 @@ pub enum Error {
     #[error("failed to connect to server: {0}")]
     Connect(#[from] ConnectError),
     #[error("failed to dispatch event: {0}")]
-    Dispatch(#[from] DispatchError),
-    #[error("wayland: {0}")]
-    WaylandError(#[from] WaylandError),
+    Dispatch(DispatchError),
+    #[error(transparent)]
+    Protocol(ProtocolError),
     #[error(transparent)]
     Io(#[from] io::Error),
+}
+
+impl From<DispatchError> for Error {
+    fn from(err: DispatchError) -> Self {
+        match err {
+            DispatchError::Backend(err) => err.into(),
+            _ => Self::Dispatch(err),
+        }
+    }
+}
+
+impl From<WaylandError> for Error {
+    fn from(err: WaylandError) -> Self {
+        match err {
+            WaylandError::Io(err) => Self::Io(err),
+            WaylandError::Protocol(err) => Self::Protocol(err),
+        }
+    }
 }
 
 struct AsyncEventQueue<State> {
