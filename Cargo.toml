@@ -5,23 +5,23 @@ edition = "2021"
 
 [dependencies]
 async-channel = "2.3.1"
-async-executor = "1.13.1"
+async-executor = "1.13.2"
 async-io = "2.4.0"
 async-net = "2.0.0"
 async-stream = "0.3.6"
 blocking = "1.6.1"
-cec-rs = "11.0.2"
-clap = { version = "4.5.27", features = ["default", "derive"] }
+cec-rs = "12.0.0"
+clap = { version = "4.5.38", features = ["default", "derive"] }
 futures-util = "0.3.31"
-logind-zbus = "5.1.0"
+logind-zbus = "5.3.2"
 postcard = { version = "1.1.1", features = [ "experimental-derive" ] }
-serde = "1.0.217"
-thiserror = "2.0.11"
+serde = "1.0.219"
+thiserror = "2.0.12"
 udev = "0.9.3"
-wayland-backend = "0.3.7"
-wayland-client = "0.31.7"
-wayland-scanner = "0.31.5"
-zbus = "5.3.1"
+wayland-backend = "0.3.10"
+wayland-client = "0.31.10"
+wayland-scanner = "0.31.6"
+zbus = "5.7.1"
 
 [profile.release]
 lto = true
