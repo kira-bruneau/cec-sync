@@ -67,8 +67,8 @@
           gamescope = pkgs.fetchFromGitHub {
             owner = "ValveSoftware";
             repo = "gamescope";
-            rev = "refs/tags/3.16.10";
-            hash = "sha256-Oc+SFfWqHVpOpNYuF246SDINsCo/YmrcV4e+qxsdsEs=";
+            rev = "refs/tags/3.16.14";
+            hash = "sha256-QdJQGLchCJZEvSMzqRAkWK5P77eeACl70o5jM8PS2vg=";
           };
 
           mpris-zbus = pkgs.stdenv.mkDerivation (finalAttrs: {
