@@ -6,15 +6,15 @@ edition = "2024"
 [dependencies]
 async-channel = "2.3.1"
 async-executor = "1.13.2"
-async-io = "2.4.0"
+async-io = "2.4.1"
 async-net = "2.0.0"
 async-stream = "0.3.6"
 blocking = "1.6.1"
 cec-rs = "12.0.0"
-clap = { version = "4.5.38", features = ["default", "derive"] }
+clap = { version = "4.5.40", features = ["default", "derive"] }
 futures-util = "0.3.31"
 logind-zbus = "5.3.2"
-postcard = { version = "1.1.1", features = [ "experimental-derive" ] }
+postcard = { version = "1.1.2", features = [ "experimental-derive" ] }
 serde = "1.0.219"
 thiserror = "2.0.12"
 udev = "0.9.3"
