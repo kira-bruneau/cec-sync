@@ -30,8 +30,8 @@ use {
         io,
         os::fd::OwnedFd,
         sync::{
-            atomic::{self, AtomicBool},
             Arc,
+            atomic::{self, AtomicBool},
         },
         task::{Context, Poll},
     },
@@ -40,6 +40,7 @@ use {
         protocol::{Message, ProtocolError},
     },
     wayland_client::{
+        ConnectError, Connection, Dispatch, DispatchError, EventQueue, QueueHandle,
         backend::WaylandError,
         protocol::{
             __interfaces::WL_SEAT_INTERFACE,
@@ -47,7 +48,6 @@ use {
             wl_registry::{self, WlRegistry},
             wl_seat::{self, WlSeat},
         },
-        ConnectError, Connection, Dispatch, DispatchError, EventQueue, QueueHandle,
     },
 };
 

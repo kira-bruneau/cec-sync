@@ -1,6 +1,6 @@
 use {
-    crate::backend::{self, dbus, udev, unix_socket, wayland, Event, Request},
-    futures_util::{stream_select, try_join, TryFutureExt, TryStreamExt},
+    crate::backend::{self, Event, Request, dbus, udev, unix_socket, wayland},
+    futures_util::{TryFutureExt, TryStreamExt, stream_select, try_join},
 };
 
 pub struct Backend {

@@ -2,21 +2,21 @@ mod player;
 
 use {
     crate::{
+        Event,
         backend::{self, Request},
         macro_command::{DeckInfo, MacroCommand},
-        Event,
     },
     cec_rs::{CecKeypress, CecUserControlCode},
     futures_util::{
-        future::try_join_all, lock::Mutex as AsyncMutex, ready, FutureExt, StreamExt, TryFutureExt,
+        FutureExt, StreamExt, TryFutureExt, future::try_join_all, lock::Mutex as AsyncMutex, ready,
     },
     player::PlayerProxy,
     std::{cmp::min, collections::HashMap, future::Future, pin::Pin, task::Poll},
     zbus::{
+        MatchRule, MessageStream,
         fdo::{DBusProxy, NameOwnerChanged},
         names::BusName,
         proxy::{CacheProperties, PropertyStream},
-        MatchRule, MessageStream,
     },
 };
 
@@ -337,7 +337,7 @@ impl Player {
     fn new(
         session: &zbus::Connection,
         destination: BusName<'static>,
-    ) -> impl Future<Output = Result<Self, zbus::Error>> {
+    ) -> impl Future<Output = Result<Self, zbus::Error>> + use<> {
         PlayerProxy::builder(session)
             .destination(destination)
             .unwrap()

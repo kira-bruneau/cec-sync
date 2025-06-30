@@ -6,13 +6,13 @@ use {
     async_executor::LocalExecutor,
     async_io::block_on,
     async_net::unix::UnixDatagram,
-    backend::{all, unix_socket, Backend, Event, Proxy, Request, Stream},
+    backend::{Backend, Event, Proxy, Request, Stream, all, unix_socket},
     cec_rs::{
         CecConnection, CecConnectionCfgBuilder, CecConnectionResultError, CecDeviceType,
         CecDeviceTypeVec, CecLogLevel, TryFromCecAudioStatusError,
     },
-    clap::{command, Parser, Subcommand},
-    futures_util::{try_join, StreamExt},
+    clap::{Parser, Subcommand, command},
+    futures_util::{StreamExt, try_join},
     macro_command::MacroCommand,
     postcard::experimental::max_size::MaxSize,
     std::{

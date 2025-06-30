@@ -5,7 +5,7 @@ use {
     },
     async_io::Async,
     async_net::unix::UnixDatagram,
-    futures_util::{ready, StreamExt},
+    futures_util::{StreamExt, ready},
     postcard::experimental::max_size::MaxSize,
     std::{
         env, fs,
@@ -89,7 +89,7 @@ impl futures_util::Stream for MacroCommandStream {
                 Ok(_) => {
                     return Poll::Ready(Some(
                         postcard::from_bytes(&buf).map_err(Error::InvalidCommand),
-                    ))
+                    ));
                 }
                 Err(err) if err.kind() == io::ErrorKind::WouldBlock => (),
                 Err(err) => return Poll::Ready(Some(Err(Error::Io(err)))),

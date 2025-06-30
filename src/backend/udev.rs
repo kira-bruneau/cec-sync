@@ -1,7 +1,7 @@
 use {
     crate::backend::{self, Request},
     async_io::Async,
-    futures_util::{future, ready, TryStreamExt},
+    futures_util::{TryStreamExt, future, ready},
     std::{
         ffi::{CString, OsStr},
         io,

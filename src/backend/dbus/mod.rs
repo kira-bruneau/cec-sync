@@ -3,7 +3,7 @@ mod systemd_logind;
 
 use {
     crate::backend::{self, Event, Request},
-    futures_util::{stream_select, try_join, TryFutureExt},
+    futures_util::{TryFutureExt, stream_select, try_join},
     zbus::Connection,
 };
 
