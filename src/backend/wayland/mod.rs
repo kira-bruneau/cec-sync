@@ -90,44 +90,41 @@ impl backend::Proxy for Proxy {
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error> {
         let state = &self.state;
 
-        if let Some(input_method) = &state.input_method {
-            match event {
-                Event::KeyPress(key_press) => match (key_press, key_press.duration.is_zero()) {
-                    (CecKeypress { keycode, .. }, true) => match keycode {
-                        CecUserControlCode::Up => {
-                            input_method.set_action(Action::MoveUp);
-                            input_method.commit(state.serial);
-                            self.event_queue.flush().await?;
-                        }
-                        CecUserControlCode::Down => {
-                            input_method.set_action(Action::MoveDown);
-                            input_method.commit(state.serial);
-                            self.event_queue.flush().await?;
-                        }
-                        CecUserControlCode::Left => {
-                            input_method.set_action(Action::MoveLeft);
-                            input_method.commit(state.serial);
-                            self.event_queue.flush().await?;
-                        }
-                        CecUserControlCode::Right => {
-                            input_method.set_action(Action::MoveRight);
-                            input_method.commit(state.serial);
-                            self.event_queue.flush().await?;
-                        }
-                        CecUserControlCode::Select => {
-                            input_method.set_action(Action::Submit);
-                            input_method.commit(state.serial);
-                            self.event_queue.flush().await?;
-                        }
-                        CecUserControlCode::Exit => {
-                            input_method.set_string(String::from("\x1B"));
-                            input_method.commit(state.serial);
-                            self.event_queue.flush().await?;
-                        }
-                        _ => (),
-                    },
-                    _ => (),
-                },
+        if let Some(input_method) = &state.input_method
+            && let Event::KeyPress(CecKeypress { keycode, duration }) = event
+            && duration.is_zero()
+        {
+            match keycode {
+                CecUserControlCode::Up => {
+                    input_method.set_action(Action::MoveUp);
+                    input_method.commit(state.serial);
+                    self.event_queue.flush().await?;
+                }
+                CecUserControlCode::Down => {
+                    input_method.set_action(Action::MoveDown);
+                    input_method.commit(state.serial);
+                    self.event_queue.flush().await?;
+                }
+                CecUserControlCode::Left => {
+                    input_method.set_action(Action::MoveLeft);
+                    input_method.commit(state.serial);
+                    self.event_queue.flush().await?;
+                }
+                CecUserControlCode::Right => {
+                    input_method.set_action(Action::MoveRight);
+                    input_method.commit(state.serial);
+                    self.event_queue.flush().await?;
+                }
+                CecUserControlCode::Select => {
+                    input_method.set_action(Action::Submit);
+                    input_method.commit(state.serial);
+                    self.event_queue.flush().await?;
+                }
+                CecUserControlCode::Exit => {
+                    input_method.set_string(String::from("\x1B"));
+                    input_method.commit(state.serial);
+                    self.event_queue.flush().await?;
+                }
                 _ => (),
             }
         }
@@ -188,12 +185,10 @@ impl Dispatch<WlRegistry, ()> for State {
                 _ => (),
             }
 
-            match (state.seat.as_ref(), state.input_method_manager.as_ref()) {
-                (Some(seat), Some(input_method_manager)) => {
-                    state.input_method =
-                        Some(input_method_manager.create_input_method(seat, &qh, ()));
-                }
-                _ => (),
+            if let Some(seat) = state.seat.as_ref()
+                && let Some(input_method_manager) = state.input_method_manager.as_ref()
+            {
+                state.input_method = Some(input_method_manager.create_input_method(seat, &qh, ()));
             }
         }
     }

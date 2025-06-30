@@ -73,8 +73,8 @@ async fn serve() -> Result<(), Error> {
     let input_task = local_ex.spawn(async move {
         while let Ok(event) = rx.recv().await {
             proxy.event(&event).await?;
-            match event {
-                Event::LogMessage(log_message) => eprintln!(
+            if let Event::LogMessage(log_message) = event {
+                eprintln!(
                     "{}: cec: {}",
                     match log_message.level {
                         CecLogLevel::Error =>
@@ -86,9 +86,8 @@ async fn serve() -> Result<(), Error> {
                         CecLogLevel::All => unreachable!(),
                     },
                     log_message.message
-                ),
-                _ => (),
-            };
+                )
+            }
         }
 
         Ok(())

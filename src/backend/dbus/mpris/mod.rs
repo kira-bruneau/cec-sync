@@ -53,91 +53,99 @@ impl backend::Proxy for Proxy<'_> {
     type Error = zbus::Error;
 
     async fn event(&mut self, event: &Event) -> Result<(), Self::Error> {
-        match event {
-            Event::KeyPress(key_press) => match (key_press, key_press.duration.is_zero()) {
-                (CecKeypress { keycode, .. }, true) => match keycode {
-                    CecUserControlCode::Play => {
-                        try_join_all(
-                            self.backend
-                                .players
-                                .try_lock()
-                                .unwrap()
-                                .iter()
-                                .map(|player| player.proxy.play()),
-                        )
-                        .await?;
-                    }
-                    CecUserControlCode::Pause => {
-                        try_join_all(
-                            self.backend
-                                .players
-                                .try_lock()
-                                .unwrap()
-                                .iter()
-                                .map(|player| player.proxy.play_pause()),
-                        )
-                        .await?;
-                    }
-                    CecUserControlCode::Stop => {
-                        try_join_all(
-                            self.backend
-                                .players
-                                .try_lock()
-                                .unwrap()
-                                .iter()
-                                .map(|player| player.proxy.stop()),
-                        )
-                        .await?;
-                    }
-                    CecUserControlCode::FastForward => {
-                        try_join_all(self.backend.players.try_lock().unwrap().iter().map(
-                            |player| {
+        if let Event::KeyPress(CecKeypress { keycode, duration }) = event
+            && duration.is_zero()
+        {
+            match keycode {
+                CecUserControlCode::Play => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| player.proxy.play()),
+                    )
+                    .await?;
+                }
+                CecUserControlCode::Pause => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| player.proxy.play_pause()),
+                    )
+                    .await?;
+                }
+                CecUserControlCode::Stop => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| player.proxy.stop()),
+                    )
+                    .await?;
+                }
+                CecUserControlCode::FastForward => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| {
                                 player
                                     .proxy
                                     .pause()
                                     .and_then(|_| player.proxy.seek(10000000))
-                            },
-                        ))
-                        .await?;
-                    }
-                    CecUserControlCode::Rewind => {
-                        try_join_all(self.backend.players.try_lock().unwrap().iter().map(
-                            |player| {
+                            }),
+                    )
+                    .await?;
+                }
+                CecUserControlCode::Rewind => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| {
                                 player
                                     .proxy
                                     .pause()
                                     .and_then(|_| player.proxy.seek(-10000000))
-                            },
-                        ))
-                        .await?;
-                    }
-                    CecUserControlCode::Forward => {
-                        try_join_all(
-                            self.backend
-                                .players
-                                .try_lock()
-                                .unwrap()
-                                .iter()
-                                .map(|player| player.proxy.next()),
-                        )
-                        .await?;
-                    }
-                    CecUserControlCode::Backward => {
-                        try_join_all(
-                            self.backend
-                                .players
-                                .try_lock()
-                                .unwrap()
-                                .iter()
-                                .map(|player| player.proxy.previous()),
-                        )
-                        .await?;
-                    }
-                    _ => (),
-                },
+                            }),
+                    )
+                    .await?;
+                }
+                CecUserControlCode::Forward => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| player.proxy.next()),
+                    )
+                    .await?;
+                }
+                CecUserControlCode::Backward => {
+                    try_join_all(
+                        self.backend
+                            .players
+                            .try_lock()
+                            .unwrap()
+                            .iter()
+                            .map(|player| player.proxy.previous()),
+                    )
+                    .await?;
+                }
                 _ => (),
-            },
-            _ => (),
+            }
         }
 
         Ok(())
